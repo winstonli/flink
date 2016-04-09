@@ -53,6 +53,13 @@ public class Buffer {
 		this(memorySegment, recycler, true);
 	}
 
+	/* for magic buffer */
+	public Buffer() {
+		memorySegment = null;
+		recycler = null;
+		isBuffer = true;
+	}
+
 	public Buffer(MemorySegment memorySegment, BufferRecycler recycler, boolean isBuffer) {
 		this.memorySegment = checkNotNull(memorySegment);
 		this.recycler = checkNotNull(recycler);

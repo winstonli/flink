@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.api.reader;
 
+import com.google.common.base.Preconditions;
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.accumulators.AccumulatorRegistry;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer;
@@ -26,6 +27,8 @@ import org.apache.flink.runtime.io.network.api.serialization.SpillingAdaptiveSpa
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.io.network.partition.consumer.MagicBufferOrEvent;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 
 import java.io.IOException;
 
@@ -76,13 +79,19 @@ abstract class AbstractRecordReader<T extends IOReadableWritable> extends Abstra
 				}
 			}
 
-			final BufferOrEvent bufferOrEvent = inputGate.getNextBufferOrEvent();
+			final BufferOrEvent bufferOrEvent;
+			if (inputGate instanceof SingleInputGate) {
+				bufferOrEvent = ((SingleInputGate) inputGate).getNextBufferOrEvent(target);
+			} else {
+				bufferOrEvent = inputGate.getNextBufferOrEvent();
+			}
 
 			if (bufferOrEvent.isBuffer()) {
 				currentRecordDeserializer = recordDeserializers[bufferOrEvent.getChannelIndex()];
 				currentRecordDeserializer.setNextBuffer(bufferOrEvent.getBuffer());
 			}
 			else {
+				Preconditions.checkState(!(bufferOrEvent instanceof MagicBufferOrEvent));
 				// sanity check for leftover data in deserializers. events should only come between
 				// records, not in the middle of a fragment
 				if (recordDeserializers[bufferOrEvent.getChannelIndex()].hasUnfinishedData()) {

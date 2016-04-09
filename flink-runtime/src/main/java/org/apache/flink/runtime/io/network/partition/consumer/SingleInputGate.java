@@ -20,6 +20,8 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 
 import com.google.common.collect.Maps;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.runtime.deployment.InputChannelDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.ResultPartitionLocation;
@@ -42,19 +44,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Timer;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.*;
 
 /**
  * An input gate consumes one or more partitions of a single produced intermediate result.
@@ -550,4 +545,85 @@ public class SingleInputGate implements InputGate {
 
 		return inputGate;
 	}
+
+	public <T extends IOReadableWritable> BufferOrEvent getNextBufferOrEvent(T t) throws IOException, InterruptedException {
+		if (hasReceivedAllEndOfPartitionEvents) {
+			return null;
+		}
+
+		if (isReleased) {
+			throw new IllegalStateException("Already released.");
+		}
+
+		requestPartitions(t);
+
+		InputChannel currentChannel = null;
+		while (currentChannel == null) {
+			currentChannel = inputChannelsWithData.poll(2, TimeUnit.SECONDS);
+		}
+
+		final Buffer buffer = currentChannel.getNextBuffer();
+
+		// Sanity check that notifications only happen when data is available
+		if (buffer == null) {
+			throw new IllegalStateException("Bug in input gate/channel logic: input gate got " +
+				"notified by channel about available data, but none was available.");
+		}
+
+		if (buffer.isBuffer()) {
+			return new BufferOrEvent(buffer, currentChannel.getChannelIndex());
+		}
+		else {
+			final AbstractEvent event = EventSerializer.fromBuffer(buffer, getClass().getClassLoader());
+
+			if (event.getClass() == EndOfPartitionEvent.class) {
+				channelsWithEndOfPartitionEvents.set(currentChannel.getChannelIndex());
+
+				if (channelsWithEndOfPartitionEvents.cardinality() == numberOfInputChannels) {
+					hasReceivedAllEndOfPartitionEvents = true;
+				}
+
+				currentChannel.notifySubpartitionConsumed();
+
+				currentChannel.releaseAllResources();
+			}
+
+			return new BufferOrEvent(event, currentChannel.getChannelIndex());
+		}
+	}
+
+	private <T extends IOReadableWritable> void requestPartitions(T t) throws IOException, InterruptedException {
+		if (numberOfInputChannels != inputChannels.size()) {
+			throw new IllegalStateException("Bug in input gate setup logic: mismatch between" +
+				"number of total input channels and the currently set number of input " +
+				"channels.");
+		}
+
+		synchronized (requestLock) {
+			if (!requestedPartitionsFlag) {
+				for (InputChannel inputChannel : inputChannels.values()) {
+					if (inputChannel instanceof LocalInputChannel) {
+						((LocalInputChannel) inputChannel).requestSubpartition(consumedSubpartitionIndex, t);
+					} else if (inputChannel instanceof RemoteInputChannel) {
+						((RemoteInputChannel) inputChannel).requestSubpartition(consumedSubpartitionIndex, t);
+					} else {
+						inputChannel.requestSubpartition(consumedSubpartitionIndex);
+					}
+				}
+			}
+
+			requestedPartitionsFlag = true;
+		}
+	}
+
+
+
+	public boolean hasNextMagic() {
+		return false;
+	}
+
+	public DataInputView nextMagic() {
+		return null;
+	}
+
 }

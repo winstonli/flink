@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
+import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
@@ -281,6 +282,16 @@ public class RemoteInputChannel extends InputChannel {
 
 	public void onError(Throwable cause) {
 		setError(cause);
+	}
+
+	public <T extends IOReadableWritable> void requestSubpartition(int subpartitionIndex, T t) throws IOException, InterruptedException {
+		if (partitionRequestClient == null) {
+			// Create a client and request the partition
+			partitionRequestClient = connectionManager
+				.createPartitionRequestClient(connectionId);
+
+			partitionRequestClient.requestSubpartition(partitionId, subpartitionIndex, this, 0, t);
+		}
 	}
 
 	public static class BufferReorderingException extends IOException {

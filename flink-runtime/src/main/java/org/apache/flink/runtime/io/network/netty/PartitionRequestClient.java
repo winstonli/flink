@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.netty;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.netty.exception.LocalTransportException;
@@ -186,6 +187,55 @@ public class PartitionRequestClient {
 	private void checkNotClosed() throws IOException {
 		if (closeReferenceCounter.isDisposed()) {
 			throw new LocalTransportException("Channel closed.", tcpChannel.localAddress());
+		}
+	}
+
+	public <T extends IOReadableWritable> ChannelFuture requestSubpartition(
+		final ResultPartitionID partitionId,
+		final int subpartitionIndex,
+		final RemoteInputChannel inputChannel,
+		int delayMs,
+		T t) throws IOException {
+		checkNotClosed();
+
+		LOG.debug("Requesting subpartition {} of partition {} with {} ms delay.",
+			subpartitionIndex, partitionId, delayMs);
+
+		partitionRequestHandler.addInputChannel(inputChannel, t);
+
+		final PartitionRequest request = new PartitionRequest(
+			partitionId, subpartitionIndex, inputChannel.getInputChannelId());
+
+		final ChannelFutureListener listener = new ChannelFutureListener() {
+			@Override
+			public void operationComplete(ChannelFuture future) throws Exception {
+				if (!future.isSuccess()) {
+					partitionRequestHandler.removeInputChannel(inputChannel);
+					inputChannel.onError(
+						new LocalTransportException(
+							"Sending the partition request failed.",
+							future.channel().localAddress(), future.cause()
+						));
+				}
+			}
+		};
+
+		if (delayMs == 0) {
+			ChannelFuture f = tcpChannel.writeAndFlush(request);
+			f.addListener(listener);
+			return f;
+		}
+		else {
+			final ChannelFuture[] f = new ChannelFuture[1];
+			tcpChannel.eventLoop().schedule(new Runnable() {
+				@Override
+				public void run() {
+					f[0] = tcpChannel.writeAndFlush(request);
+					f[0].addListener(listener);
+				}
+			}, delayMs, TimeUnit.MILLISECONDS);
+
+			return f[0];
 		}
 	}
 }

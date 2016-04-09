@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.netty;
 import com.google.common.collect.Maps;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-
+import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -84,6 +84,7 @@ class PartitionRequestClientHandler extends ChannelInboundHandlerAdapter {
 
 	void removeInputChannel(RemoteInputChannel listener) {
 		inputChannels.remove(listener.getInputChannelId());
+		channelClasses.remove(listener.getInputChannelId());
 	}
 
 	void cancelRequestFor(InputChannelID inputChannelId) {
@@ -186,6 +187,7 @@ class PartitionRequestClientHandler extends ChannelInboundHandlerAdapter {
 			}
 			finally {
 				inputChannels.clear();
+				channelClasses.clear();
 
 				if (ctx != null) {
 					ctx.close();
@@ -252,6 +254,8 @@ class PartitionRequestClientHandler extends ChannelInboundHandlerAdapter {
 		return true;
 	}
 
+	private final MagicParser magicParser = new MagicParser();
+
 	private boolean decodeBufferOrEvent(RemoteInputChannel inputChannel, NettyMessage.BufferResponse bufferOrEvent) throws Throwable {
 		boolean releaseNettyBuffer = true;
 
@@ -267,34 +271,47 @@ class PartitionRequestClientHandler extends ChannelInboundHandlerAdapter {
 				}
 
 				BufferProvider bufferProvider = inputChannel.getBufferProvider();
-
-				if (bufferProvider == null) {
-
-					cancelRequestFor(bufferOrEvent.receiverId);
-
-					return false; // receiver has been cancelled/failed
+				Buffer b = bufferProvider.requestBuffer();
+				if (b != null) {
+					b.setSize(bufferOrEvent.getSize());
+					bufferOrEvent.getNettyBuffer().readBytes(b.getNioBuffer());
 				}
+				bufferOrEvent.getNettyBuffer().readerIndex(0);
 
-				while (true) {
-					Buffer buffer = bufferProvider.requestBuffer();
-
-					if (buffer != null) {
-						buffer.setSize(bufferOrEvent.getSize());
-						bufferOrEvent.getNettyBuffer().readBytes(buffer.getNioBuffer());
-
-						inputChannel.onBuffer(buffer, bufferOrEvent.sequenceNumber);
-
-						return true;
-					}
-					else if (bufferListener.waitForBuffer(bufferProvider, bufferOrEvent)) {
-						releaseNettyBuffer = false;
-
-						return false;
-					}
-					else if (bufferProvider.isDestroyed()) {
-						return false;
-					}
-				}
+				Buffer buffer = magicParser.parse(bufferOrEvent.getNettyBuffer(), bufferOrEvent.getSize(), channelClasses.get(bufferOrEvent.receiverId), bufferOrEvent.receiverId);
+				inputChannel.onBuffer(buffer, bufferOrEvent.sequenceNumber);
+				releaseNettyBuffer = false;
+				return true;
+//				BufferProvider bufferProvider = inputChannel.getBufferProvider();
+//
+//				if (bufferProvider == null) {
+//
+//					cancelRequestFor(bufferOrEvent.receiverId);
+//
+//					return false; // receiver has been cancelled/failed
+//				}
+//
+//				while (true) {
+//					Buffer buffer = bufferProvider.requestBuffer();
+//
+//					if (buffer != null) {
+//						buffer.setSize(bufferOrEvent.getSize());
+//						bufferOrEvent.getNettyBuffer().readBytes(buffer.getNioBuffer());
+//						System.out.println(new String(buffer.getNioBuffer().array()));
+//
+//						inputChannel.onBuffer(buffer, bufferOrEvent.sequenceNumber);
+//
+//						return true;
+//					}
+//					else if (bufferListener.waitForBuffer(bufferProvider, bufferOrEvent)) {
+//						releaseNettyBuffer = false;
+//
+//						return false;
+//					}
+//					else if (bufferProvider.isDestroyed()) {
+//						return false;
+//					}
+//				}
 			}
 			else {
 				// ---- Event -------------------------------------------------
@@ -314,6 +331,17 @@ class PartitionRequestClientHandler extends ChannelInboundHandlerAdapter {
 			if (releaseNettyBuffer) {
 				bufferOrEvent.releaseBuffer();
 			}
+		}
+	}
+
+	private final ConcurrentMap<InputChannelID, IOReadableWritable> channelClasses = new ConcurrentHashMap<>();
+
+	public <T extends IOReadableWritable> void addInputChannel(RemoteInputChannel listener, T t) {
+		checkState(!channelError.get(), "There has been an error in the channel.");
+
+		if (!inputChannels.containsKey(listener.getInputChannelId())) {
+			inputChannels.put(listener.getInputChannelId(), listener);
+			channelClasses.put(listener.getInputChannelId(), t);
 		}
 	}
 

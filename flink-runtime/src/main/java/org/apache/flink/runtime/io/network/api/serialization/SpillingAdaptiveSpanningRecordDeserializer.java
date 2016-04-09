@@ -26,16 +26,11 @@ import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.accumulators.AccumulatorRegistry;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.MagicBuffer;
 import org.apache.flink.runtime.util.DataInputDeserializer;
 import org.apache.flink.util.StringUtils;
 
-import java.io.BufferedInputStream;
-import java.io.EOFException;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.io.UTFDataFormatException;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
@@ -77,6 +72,9 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
 	@Override
 	public void setNextBuffer(Buffer buffer) throws IOException {
 		currentBuffer = buffer;
+		if (buffer instanceof MagicBuffer) {
+			return;
+		}
 
 		MemorySegment segment = buffer.getMemorySegment();
 		int numBytes = buffer.getSize();
@@ -107,7 +105,17 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
 		// always check the non-spanning wrapper first.
 		// this should be the majority of the cases for small records
 		// for large records, this portion of the work is very small in comparison anyways
-		
+		if (currentBuffer instanceof MagicBuffer) {
+			MagicBuffer<T> magicBuffer = (MagicBuffer<T>) currentBuffer;
+			target.read(magicBuffer);
+			if (magicBuffer.hasRemaining()) {
+				return DeserializationResult.INTERMEDIATE_RECORD_FROM_BUFFER;
+			}
+			if (magicBuffer.isSplit()) {
+				return DeserializationResult.PARTIAL_RECORD;
+			}
+			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
+		}
 		int nonSpanningRemaining = this.nonSpanningWrapper.remaining();
 		
 		// check if we can get a full length;

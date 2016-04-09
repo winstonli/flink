@@ -18,13 +18,14 @@
 
 package org.apache.flink.api.java.typeutils.runtime;
 
-import java.io.IOException;
-
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.core.memory.MagicInputView;
 import org.apache.flink.types.NullFieldException;
+
+import java.io.IOException;
 
 
 public class TupleSerializer<T extends Tuple> extends TupleSerializerBase<T> {
@@ -140,6 +141,9 @@ public class TupleSerializer<T extends Tuple> extends TupleSerializerBase<T> {
 	
 	@Override
 	public T deserialize(T reuse, DataInputView source) throws IOException {
+		if (source instanceof MagicInputView) {
+			return ((MagicInputView<T>) source).read();
+		}
 		for (int i = 0; i < arity; i++) {
 			Object field = fieldSerializers[i].deserialize(reuse.getField(i), source);
 			reuse.setField(field, i);
