@@ -174,7 +174,7 @@ class PartitionRequestClientHandler extends ChannelInboundHandlerAdapter {
 		}
 	}
 
-	private void notifyAllChannelsOfErrorAndClose(Throwable cause) {
+	public void notifyAllChannelsOfErrorAndClose(Throwable cause) {
 		if (channelError.compareAndSet(false, true)) {
 			try {
 				for (RemoteInputChannel inputChannel : inputChannels.values()) {

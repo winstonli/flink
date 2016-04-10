@@ -543,7 +543,7 @@ abstract class NettyMessage {
 
 	// ------------------------------------------------------------------------
 
-	private static class ByteBufDataInputView implements DataInputView {
+	public static class ByteBufDataInputView implements DataInputView {
 
 		private final ByteBufInputStream inputView;
 

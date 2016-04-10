@@ -8,15 +8,21 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
+import org.apache.flink.api.java.typeutils.runtime.DataInputViewStream;
 import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
+import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
+import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketAddress;
@@ -291,7 +297,7 @@ public class MagicChannel implements Channel {
 		throw new UnsupportedOperationException();
 	}
 
-	public void setSocket(Socket socket) throws IOException {
+	public void setSocket(final Socket socket) throws IOException {
 		this.socket = socket;
 		inputStream = socket.getInputStream();
 		outputStream = socket.getOutputStream();
@@ -316,51 +322,91 @@ public class MagicChannel implements Channel {
 					int magic = header.getInt(4);
 					Preconditions.checkArgument(magic == NettyMessage.MAGIC_NUMBER);
 					int id = header.get(8);
-					switch (id) {
-					case 0: /* BufferResponse */
-						doReadBufferResponse(frameLen);
-					case 1: /* ErrorResponse */
-						break;
-//						throw new UnsupportedOperationException();
-					default:
-						throw new IllegalStateException("id was wrong");
+
+					int bodyLen = frameLen - NettyMessage.HEADER_LENGTH;
+					ByteBuf bbuf = pool.heapBuffer(bodyLen);
+
+					try {
+						int currentRead;
+						int read = 0;
+						while ((currentRead = inputStream.read(bbuf.array(), bbuf.arrayOffset() + bbuf.writerIndex(), bodyLen - read)) != -1) {
+							read += currentRead;
+							bbuf.writerIndex(bbuf.writerIndex() + currentRead);
+							if (read == bodyLen) {
+								break;
+							} else if (read >= bodyLen) {
+								throw new IllegalStateException("read too much");
+							}
+						}
+
+						switch (id) {
+						case 0: /* BufferResponse */
+							doReadBufferResponse(bbuf);
+							break;
+						case 1: /* ErrorResponse */
+							doReadErrorResponse(bbuf);
+							break;
+						default:
+							throw new IllegalStateException("id was wrong");
+						}
+					} finally {
+						bbuf.release();
 					}
 				}
 			}
 
-			private void doReadBufferResponse(int frameLen) throws IOException {
-				int bodyLen = frameLen - NettyMessage.HEADER_LENGTH;
-				ByteBuf bbuf = pool.heapBuffer(bodyLen);
-				try {
-					int currentRead;
-					int read = 0;
-					while ((currentRead = inputStream.read(bbuf.array(), bbuf.arrayOffset() + bbuf.writerIndex(), bodyLen - read)) != -1) {
-						read += currentRead;
-						bbuf.writerIndex(bbuf.writerIndex() + currentRead);
-						if (read == bodyLen) {
-							break;
-						} else if (read >= bodyLen) {
-							throw new IllegalStateException("read too much");
+			private void doReadErrorResponse(ByteBuf bbuf) {
+				DataInputView inputView = new NettyMessage.ByteBufDataInputView(bbuf);
+
+				try (ObjectInputStream ois = new ObjectInputStream(new DataInputViewStream(inputView))) {
+
+					Object obj = ois.readObject();
+
+					if (!(obj instanceof Throwable)) {
+						throw new ClassCastException("Read object expected to be of type Throwable, " +
+							"actual type is " + obj.getClass() + ".");
+					}
+					Throwable cause = (Throwable) obj;
+					InputChannelID receiverId = null;
+					if (bbuf.readBoolean()) {
+						receiverId = InputChannelID.fromByteBuf(bbuf);
+					}
+					if (receiverId == null) { /* Fatal error */
+						handler.notifyAllChannelsOfErrorAndClose(new RemoteTransportException(
+							"Fatal error at remote task manager '" + socket.getRemoteSocketAddress() + "'.",
+							socket.getRemoteSocketAddress(), cause));
+					} else {
+						RemoteInputChannel inputChannel = handler.getInputChannelForId(receiverId);
+						if (cause.getClass() == PartitionNotFoundException.class) {
+							inputChannel.onFailedPartitionRequest();
 						}
 					}
-                    InputChannelID receiverId = InputChannelID.fromByteBuf(bbuf);
-                    int sequenceNumber = bbuf.readInt();
-                    boolean isBuffer = bbuf.readBoolean();
-					int size = bbuf.readInt();
-					if (isBuffer) {
-						IOReadableWritable p = handler.getParserForChannelId(receiverId);
-						Buffer b = parser.parse(bbuf, size, p, receiverId);
-						handler.getInputChannelForId(receiverId).onBuffer(b, sequenceNumber);
-					} else {
-						byte[] copy = new byte[size];
-						bbuf.readBytes(copy);
-						MemorySegment memSeg = MemorySegmentFactory.wrap(copy);
-						Buffer buffer = new Buffer(memSeg, FreeingBufferRecycler.INSTANCE, false);
-						handler.getInputChannelForId(receiverId).onBuffer(buffer, sequenceNumber);
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				} catch (ClassNotFoundException e) {
+					throw new RuntimeException(e);
+				}
+			}
+
+			private void doReadBufferResponse(ByteBuf bbuf) throws IOException {
+				InputChannelID receiverId = InputChannelID.fromByteBuf(bbuf);
+				int sequenceNumber = bbuf.readInt();
+				boolean isBuffer = bbuf.readBoolean();
+				int size = bbuf.readInt();
+				if (isBuffer) {
+					if (size == 0) {
+						handler.getInputChannelForId(receiverId).onEmptyBuffer(sequenceNumber);
 					}
-                } finally {
-                    bbuf.release();
-                }
+					IOReadableWritable p = handler.getParserForChannelId(receiverId);
+					Buffer b = parser.parse(bbuf, size, p, receiverId);
+					handler.getInputChannelForId(receiverId).onBuffer(b, sequenceNumber);
+				} else {
+					byte[] copy = new byte[size];
+					bbuf.readBytes(copy);
+					MemorySegment memSeg = MemorySegmentFactory.wrap(copy);
+					Buffer buffer = new Buffer(memSeg, FreeingBufferRecycler.INSTANCE, false);
+					handler.getInputChannelForId(receiverId).onBuffer(buffer, sequenceNumber);
+				}
 			}
 
 		}.start();
