@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -335,6 +336,14 @@ class PartitionRequestClientHandler extends ChannelInboundHandlerAdapter {
 	}
 
 	private final ConcurrentMap<InputChannelID, IOReadableWritable> channelClasses = new ConcurrentHashMap<>();
+
+	public IOReadableWritable getParserForChannelId(InputChannelID id) {
+		return Preconditions.checkNotNull(channelClasses.get(id));
+	}
+
+	public RemoteInputChannel getInputChannelForId(InputChannelID id) {
+		return Preconditions.checkNotNull(inputChannels.get(id));
+	}
 
 	public <T extends IOReadableWritable> void addInputChannel(RemoteInputChannel listener, T t) {
 		checkState(!channelError.get(), "There has been an error in the channel.");

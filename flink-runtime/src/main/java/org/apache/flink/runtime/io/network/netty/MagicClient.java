@@ -12,14 +12,16 @@ import java.net.Socket;
  */
 public class MagicClient {
 
+	private final MagicParser parser;
 	private final PartitionRequestClientHandler handler;
 
 	public MagicClient(PartitionRequestClientHandler handler) {
+		parser = new MagicParser();
 		this.handler = handler;
 	}
 
 	public ChannelFuture connect(InetSocketAddress serverSocketAddress) {
-		MagicChannel channel = new MagicChannel(handler);
+		MagicChannel channel = new MagicChannel(parser, handler);
 		try {
 			Socket socket = new Socket(serverSocketAddress.getHostName(), serverSocketAddress.getPort());
 			channel.setSocket(socket);

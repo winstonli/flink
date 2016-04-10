@@ -151,6 +151,7 @@ public class MagicParser {
 
 		public synchronized void add(BBuf bbuf) {
 			bufs.add(bbuf);
+			bbuf.getBuf().retain();
 		}
 
 		@Override
