@@ -42,8 +42,11 @@ class PartitionRequestClientFactory {
 
 	private final ConcurrentMap<ConnectionID, Object> clients = new ConcurrentHashMap<ConnectionID, Object>();
 
+	private final MagicClient magicClient;
+
 	PartitionRequestClientFactory(NettyClient nettyClient) {
 		this.nettyClient = nettyClient;
+		magicClient = new MagicClient(new PartitionRequestClientHandler());
 	}
 
 	/**
@@ -78,7 +81,7 @@ class PartitionRequestClientFactory {
 				Object old = clients.putIfAbsent(connectionId, connectingChannel);
 
 				if (old == null) {
-					nettyClient.connect(connectionId.getAddress()).addListener(connectingChannel);
+					magicClient.connect(connectionId.getAddress()).addListener(connectingChannel);
 
 					client = connectingChannel.waitForChannel();
 
