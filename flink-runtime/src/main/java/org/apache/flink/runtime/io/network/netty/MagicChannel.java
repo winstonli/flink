@@ -272,16 +272,22 @@ public class MagicChannel implements Channel {
 		inputStream = socket.getInputStream();
 		outputStream = socket.getOutputStream();
 		new Thread() {
+
+			ByteBuffer header = ByteBuffer.allocate(NettyMessage.HEADER_LENGTH);
+			ByteBuffer buf = ByteBuffer.allocate(32793);
+
 			@Override
 			public void run() {
-				ByteBuffer header = ByteBuffer.allocate(NettyMessage.HEADER_LENGTH);
 				try {
 					inputStream.read(header.array(), 0, NettyMessage.HEADER_LENGTH);
 					int frameLen = header.getInt(0);
 					int magic = header.getInt(4);
 					int id = header.get(8);
-					while (inputStream.read(header.array()) > 0) {
-						System.out.println(new String(header.array()));
+					if (buf.capacity() < frameLen - NettyMessage.HEADER_LENGTH) {
+						buf = ByteBuffer.allocate(frameLen - NettyMessage.HEADER_LENGTH);
+					}
+					while (inputStream.read(buf.array()) > 0) {
+						System.out.println(new String(buf.array()));
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
