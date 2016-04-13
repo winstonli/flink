@@ -24,6 +24,7 @@ public class MagicParser {
 
 	Map<InputChannelID, SpillingBuffer> unfinished = new HashMap<>();
 
+
 	public synchronized Buffer parse(ByteBuf nettyBuffer, int len, IOReadableWritable ioReadableWritable, InputChannelID receiverId) throws IOException {
 		SpillingBuffer buf = unfinished.get(receiverId);
 		if (buf == null) {

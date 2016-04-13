@@ -23,6 +23,7 @@ import org.apache.flink.api.common.functions.FlatJoinFunction;
 import org.apache.flink.api.common.typeutils.TypeComparator;
 import org.apache.flink.api.common.typeutils.TypePairComparatorFactory;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.typeutils.runtime.RuntimeSerializerFactory;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.memory.MemoryManager;
@@ -100,7 +101,7 @@ public class JoinDriver<IT1, IT2, OT> implements Driver<FlatJoinFunction<IT1, IT
 		final MutableObjectIterator<IT2> in2 = this.taskContext.getInput(1);
 
 		// get the key positions and types
-		final TypeSerializer<IT1> serializer1 = this.taskContext.<IT1>getInputSerializer(0).getSerializer();
+		final TypeSerializer<IT1> serializer1 = ((RuntimeSerializerFactory) this.taskContext.<IT1>getInputSerializer(0)).getMagicSerializer();
 		final TypeSerializer<IT2> serializer2 = this.taskContext.<IT2>getInputSerializer(1).getSerializer();
 		final TypeComparator<IT1> comparator1 = this.taskContext.getDriverComparator(0);
 		final TypeComparator<IT2> comparator2 = this.taskContext.getDriverComparator(1);

@@ -121,4 +121,9 @@ public final class RuntimeSerializerFactory<T> implements TypeSerializerFactory<
 			return false;
 		}
 	}
+
+	public TypeSerializer<T> getMagicSerializer() {
+		return getSerializer();
+	}
+
 }
