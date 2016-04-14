@@ -255,7 +255,7 @@ class PartitionRequestClientHandler extends ChannelInboundHandlerAdapter {
 		return true;
 	}
 
-	private final MagicParser magicParser = new MagicParser();
+	private final FlinkMagicParser flinkMagicParser = new FlinkMagicParser();
 
 	private boolean decodeBufferOrEvent(RemoteInputChannel inputChannel, NettyMessage.BufferResponse bufferOrEvent) throws Throwable {
 		boolean releaseNettyBuffer = true;
@@ -279,7 +279,7 @@ class PartitionRequestClientHandler extends ChannelInboundHandlerAdapter {
 				}
 				bufferOrEvent.getNettyBuffer().readerIndex(0);
 
-				Buffer buffer = magicParser.parse(bufferOrEvent.getNettyBuffer(), bufferOrEvent.getSize(), channelClasses.get(bufferOrEvent.receiverId), bufferOrEvent.receiverId);
+				Buffer buffer = flinkMagicParser.parse(bufferOrEvent.getNettyBuffer(), bufferOrEvent.getSize(), channelClasses.get(bufferOrEvent.receiverId), bufferOrEvent.receiverId);
 				inputChannel.onBuffer(buffer, bufferOrEvent.sequenceNumber);
 				releaseNettyBuffer = false;
 				return true;

@@ -10,9 +10,9 @@ import io.netty.util.concurrent.GenericFutureListener;
 /**
  * Created by winston on 10/04/2016.
  */
-public class MagicPromise extends DefaultChannelPromise {
+public class FlinkMagicPromise extends DefaultChannelPromise {
 
-	public MagicPromise(Channel channel) {
+	public FlinkMagicPromise(Channel channel) {
 		super(channel);
 	}
 

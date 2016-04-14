@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.netty;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.netty.exception.LocalTransportException;
 import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
@@ -42,18 +43,18 @@ class PartitionRequestClientFactory {
 
 	private final ConcurrentMap<ConnectionID, Object> clients = new ConcurrentHashMap<ConnectionID, Object>();
 
-	private final MagicClient magicClient;
+	private final FlinkMagicClient flinkMagicClient;
 
 	PartitionRequestClientFactory(NettyClient nettyClient) {
 		this.nettyClient = nettyClient;
-		magicClient = new MagicClient(new PartitionRequestClientHandler());
+		flinkMagicClient = new FlinkMagicClient(new PartitionRequestClientHandler());
 	}
 
 	/**
 	 * Atomically establishes a TCP connection to the given remote address and
 	 * creates a {@link PartitionRequestClient} instance for this connection.
 	 */
-	PartitionRequestClient createPartitionRequestClient(ConnectionID connectionId) throws IOException, InterruptedException {
+	public <T extends IOReadableWritable> PartitionRequestClient createPartitionRequestClient(ConnectionID connectionId, T t) throws IOException, InterruptedException {
 		Object entry;
 		PartitionRequestClient client = null;
 
@@ -81,7 +82,62 @@ class PartitionRequestClientFactory {
 				Object old = clients.putIfAbsent(connectionId, connectingChannel);
 
 				if (old == null) {
-					magicClient.connect(connectionId.getAddress()).addListener(connectingChannel);
+					flinkMagicClient.connect(connectionId.getAddress(), FlinkMagicTypeDesc.ofIOReadableWritable(t)).addListener(connectingChannel);
+
+					client = connectingChannel.waitForChannel();
+
+					clients.replace(connectionId, connectingChannel, client);
+				}
+				else if (old instanceof ConnectingChannel) {
+					client = ((ConnectingChannel) old).waitForChannel();
+
+					clients.replace(connectionId, old, client);
+				}
+				else {
+					client = (PartitionRequestClient) old;
+				}
+			}
+
+			// Make sure to increment the reference count before handing a client
+			// out to ensure correct bookkeeping for channel closing.
+			if (!client.incrementReferenceCounter()) {
+				destroyPartitionRequestClient(connectionId, client);
+				client = null;
+			}
+		}
+
+		return client;
+	}
+
+	public <T extends IOReadableWritable> PartitionRequestClient createPartitionRequestClient(ConnectionID connectionId) throws IOException, InterruptedException {
+		Object entry;
+		PartitionRequestClient client = null;
+
+		while (client == null) {
+			entry = clients.get(connectionId);
+
+			if (entry != null) {
+				// Existing channel or connecting channel
+				if (entry instanceof PartitionRequestClient) {
+					client = (PartitionRequestClient) entry;
+				}
+				else {
+					ConnectingChannel future = (ConnectingChannel) entry;
+					client = future.waitForChannel();
+
+					clients.replace(connectionId, future, client);
+				}
+			}
+			else {
+				// No channel yet. Create one, but watch out for a race.
+				// We create a "connecting future" and atomically add it to the map.
+				// Only the thread that really added it establishes the channel.
+				// The others need to wait on that original establisher's future.
+				ConnectingChannel connectingChannel = new ConnectingChannel(connectionId, this);
+				Object old = clients.putIfAbsent(connectionId, connectingChannel);
+
+				if (old == null) {
+					nettyClient.connect(connectionId.getAddress()).addListener(connectingChannel);
 
 					client = connectingChannel.waitForChannel();
 

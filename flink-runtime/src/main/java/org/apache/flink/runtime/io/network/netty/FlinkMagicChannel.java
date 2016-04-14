@@ -1,15 +1,12 @@
 package org.apache.flink.runtime.io.network.netty;
 
-import com.google.common.base.Preconditions;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 import org.apache.flink.api.java.typeutils.runtime.DataInputViewStream;
-import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
@@ -21,27 +18,19 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectInputStream;
-import java.io.OutputStream;
-import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 
 /**
  * Created by winston on 10/04/2016.
  */
-public class MagicChannel implements Channel {
+public class FlinkMagicChannel implements Channel {
 
-	private final MagicParser parser;
 	private final PartitionRequestClientHandler handler;
+	private MagicSocket socket;
 
-	private Socket socket;
-	private InputStream inputStream;
-	private OutputStream outputStream;
-
-	public MagicChannel(MagicParser parser, PartitionRequestClientHandler handler) {
-		this.parser = parser;
+	public FlinkMagicChannel(PartitionRequestClientHandler handler) {
 		this.handler = handler;
 	}
 
@@ -207,7 +196,7 @@ public class MagicChannel implements Channel {
 
 	@Override
 	public ChannelFuture write(Object msg) {
-		MagicPromise ret = new MagicPromise(this);
+		FlinkMagicPromise ret = new FlinkMagicPromise(this);
 		if (msg instanceof NettyMessage.PartitionRequest) {
 			NettyMessage.PartitionRequest pr = ((NettyMessage.PartitionRequest) msg);
 			int len = NettyMessage.HEADER_LENGTH + 16 + 16 + 4 + 16;
@@ -216,27 +205,27 @@ public class MagicChannel implements Channel {
 			bbuf.resetWriterIndex();
 			try {
 				buf.putInt(0, len);
-				outputStream.write(buf.array(), 0, 4);
+				socket.write(buf.array(), 0, 4);
 
 				buf.putInt(0, NettyMessage.MAGIC_NUMBER);
-				outputStream.write(buf.array(), 0, 4);
+				socket.write(buf.array(), 0, 4);
 
-				outputStream.write(NettyMessage.PartitionRequest.ID);
+				socket.write(NettyMessage.PartitionRequest.ID);
 
 				pr.partitionId.getPartitionId().writeTo(bbuf);
 				bbuf.resetWriterIndex();
-				outputStream.write(buf.array(), 0, 16);
+				socket.write(buf.array(), 0, 16);
 
 				pr.partitionId.getProducerId().writeTo(bbuf);
 				bbuf.resetWriterIndex();
-				outputStream.write(buf.array(), 0, 16);
+				socket.write(buf.array(), 0, 16);
 
 				buf.putInt(0, pr.queueIndex);
-				outputStream.write(buf.array(), 0, 4);
+				socket.write(buf.array(), 0, 4);
 
 				pr.receiverId.writeTo(bbuf);
 				bbuf.resetWriterIndex();
-				outputStream.write(buf.array(), 0, 16);
+				socket.write(buf.array(), 0, 16);
 				return ret.setSuccess();
 			} catch (IOException e) {
 				return ret.setFailure(e);
@@ -248,10 +237,10 @@ public class MagicChannel implements Channel {
 			ByteBuffer buf = ByteBuffer.allocate(4);
 			try {
 				buf.putInt(0, len);
-				outputStream.write(buf.array(), 0, 4);
+				socket.write(buf.array(), 0, 4);
 				buf.putInt(0, NettyMessage.MAGIC_NUMBER);
-				outputStream.write(buf.array(), 0, 4);
-				outputStream.write(5); /* CloseRequest.ID */
+				socket.write(buf.array(), 0, 4);
+				socket.write(5); /* CloseRequest.ID */
 				return ret.setSuccess();
 			} catch (IOException e) {
 				return ret.setFailure(e);
@@ -267,11 +256,6 @@ public class MagicChannel implements Channel {
 
 	@Override
 	public Channel flush() {
-		try {
-			outputStream.flush();
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
 		return this;
 	}
 
@@ -297,119 +281,88 @@ public class MagicChannel implements Channel {
 		throw new UnsupportedOperationException();
 	}
 
-	public void setSocket(final Socket socket) throws IOException {
+	public void setSocket(final MagicSocket socket) throws IOException {
 		this.socket = socket;
-		inputStream = socket.getInputStream();
-		outputStream = socket.getOutputStream();
 		new Thread() {
-
-			PooledByteBufAllocator pool = new PooledByteBufAllocator();
-
-			ByteBuffer header = ByteBuffer.allocate(NettyMessage.HEADER_LENGTH);
 
 			@Override
 			public void run() {
 				try {
-					doRead();
+					while (true) {
+						FlinkMagicResult res = (FlinkMagicResult) socket.read();
+						Object tData = res.getTData();
+						if (tData instanceof FlinkMagicObjectError) {
+							FlinkMagicObjectError error = ((FlinkMagicObjectError) tData);
+							handleError(error);
+						} else if (tData instanceof FlinkMagicBufferHeader) {
+							FlinkMagicBufferHeader header = ((FlinkMagicBufferHeader) tData);
+							handleHeader(header);
+						} else if (tData instanceof FlinkMagicBufferEvent) {
+							FlinkMagicBufferEvent event = ((FlinkMagicBufferEvent) tData);
+							handleEvent(event);
+						} else if (tData instanceof FlinkMagicObject) {
+							FlinkMagicObject tDataObj = ((FlinkMagicObject) tData);
+							handleTData(tDataObj);
+						} else {
+							throw new UnsupportedOperationException();
+						}
+                    }
 				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-			}
-
-			private void doRead() throws IOException {
-				while (inputStream.read(header.array(), 0, NettyMessage.HEADER_LENGTH) == NettyMessage.HEADER_LENGTH) {
-					int frameLen = header.getInt(0);
-					int magic = header.getInt(4);
-					Preconditions.checkArgument(magic == NettyMessage.MAGIC_NUMBER);
-					int id = header.get(8);
-
-					int bodyLen = frameLen - NettyMessage.HEADER_LENGTH;
-					ByteBuf bbuf = pool.heapBuffer(bodyLen);
-
-					try {
-						int currentRead;
-						int read = 0;
-						while ((currentRead = inputStream.read(bbuf.array(), bbuf.arrayOffset() + bbuf.writerIndex(), bodyLen - read)) != -1) {
-							read += currentRead;
-							bbuf.writerIndex(bbuf.writerIndex() + currentRead);
-							if (read == bodyLen) {
-								break;
-							} else if (read >= bodyLen) {
-								throw new IllegalStateException("read too much");
-							}
-						}
-
-						switch (id) {
-						case 0: /* BufferResponse */
-							doReadBufferResponse(bbuf);
-							break;
-						case 1: /* ErrorResponse */
-							doReadErrorResponse(bbuf);
-							break;
-						default:
-							throw new IllegalStateException("id was wrong");
-						}
-					} finally {
-						bbuf.release();
-					}
-				}
-			}
-
-			private void doReadErrorResponse(ByteBuf bbuf) {
-				DataInputView inputView = new NettyMessage.ByteBufDataInputView(bbuf);
-
-				try (ObjectInputStream ois = new ObjectInputStream(new DataInputViewStream(inputView))) {
-
-					Object obj = ois.readObject();
-
-					if (!(obj instanceof Throwable)) {
-						throw new ClassCastException("Read object expected to be of type Throwable, " +
-							"actual type is " + obj.getClass() + ".");
-					}
-					Throwable cause = (Throwable) obj;
-					InputChannelID receiverId = null;
-					if (bbuf.readBoolean()) {
-						receiverId = InputChannelID.fromByteBuf(bbuf);
-					}
-					if (receiverId == null) { /* Fatal error */
-						handler.notifyAllChannelsOfErrorAndClose(new RemoteTransportException(
-							"Fatal error at remote task manager '" + socket.getRemoteSocketAddress() + "'.",
-							socket.getRemoteSocketAddress(), cause));
-					} else {
-						RemoteInputChannel inputChannel = handler.getInputChannelForId(receiverId);
-						if (cause.getClass() == PartitionNotFoundException.class) {
-							inputChannel.onFailedPartitionRequest();
-						}
-					}
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				} catch (ClassNotFoundException e) {
-					throw new RuntimeException(e);
-				}
-			}
-
-			private void doReadBufferResponse(ByteBuf bbuf) throws IOException {
-				InputChannelID receiverId = InputChannelID.fromByteBuf(bbuf);
-				int sequenceNumber = bbuf.readInt();
-				boolean isBuffer = bbuf.readBoolean();
-				int size = bbuf.readInt();
-				if (isBuffer) {
-					if (size == 0) {
-						handler.getInputChannelForId(receiverId).onEmptyBuffer(sequenceNumber);
-					}
-					IOReadableWritable p = handler.getParserForChannelId(receiverId);
-					Buffer b = parser.parse(bbuf, size, p, receiverId);
-					handler.getInputChannelForId(receiverId).onBuffer(b, sequenceNumber);
-				} else {
-					byte[] copy = new byte[size];
-					bbuf.readBytes(copy);
-					MemorySegment memSeg = MemorySegmentFactory.wrap(copy);
-					Buffer buffer = new Buffer(memSeg, FreeingBufferRecycler.INSTANCE, false);
-					handler.getInputChannelForId(receiverId).onBuffer(buffer, sequenceNumber);
+					e.printStackTrace();
 				}
 			}
 
 		}.start();
+	}
+
+	private void handleTData(FlinkMagicObject tDataObj) {
+		FlinkMagicBufferHeader hdr = tDataObj.getHdr();
+		handler.getInputChannelForId(hdr.getReceiverId()).onBuffer(((Buffer) tDataObj.gettData()), hdr.getSequenceNumber());
+	}
+
+	private void handleEvent(FlinkMagicBufferEvent event) {
+		MemorySegment memSeg = MemorySegmentFactory.wrap(event.getCopy());
+		Buffer buffer = new Buffer(memSeg, FreeingBufferRecycler.INSTANCE, false);
+		handler.getInputChannelForId(event.getReceiverId()).onBuffer(buffer, event.getSequenceNumber());
+	}
+
+	private void handleHeader(FlinkMagicBufferHeader header) {
+		if (header.getSize() == 0) {
+			handler.getInputChannelForId(header.getReceiverId()).onEmptyBuffer(header.getSequenceNumber());
+		}
+	}
+
+	private void handleError(FlinkMagicObjectError error) {
+		ByteBuf bbuf = Unpooled.wrappedBuffer(error.getErr());
+		DataInputView inputView = new NettyMessage.ByteBufDataInputView(bbuf);
+
+		try (ObjectInputStream ois = new ObjectInputStream(new DataInputViewStream(inputView))) {
+			Object obj = ois.readObject();
+
+			if (!(obj instanceof Throwable)) {
+				throw new ClassCastException("Read object expected to be of type Throwable, " +
+					"actual type is " + obj.getClass() + ".");
+			}
+			Throwable cause = (Throwable) obj;
+			InputChannelID receiverId = null;
+			if (bbuf.readBoolean()) {
+				receiverId = InputChannelID.fromByteBuf(bbuf);
+			}
+			if (receiverId == null) { /* Fatal error */
+				handler.notifyAllChannelsOfErrorAndClose(new RemoteTransportException(
+					"Fatal error at remote task manager '" + socket.getAddress() + "'.",
+					socket.getAddress(), cause));
+			} else {
+				RemoteInputChannel inputChannel = handler.getInputChannelForId(receiverId);
+				if (cause.getClass() == PartitionNotFoundException.class) {
+					inputChannel.onFailedPartitionRequest();
+				}
+			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 }

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
@@ -57,7 +58,7 @@ public class NettyConnectionManager implements ConnectionManager {
 	@Override
 	public PartitionRequestClient createPartitionRequestClient(ConnectionID connectionId)
 			throws IOException, InterruptedException {
-		return partitionRequestClientFactory.createPartitionRequestClient(connectionId);
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
@@ -86,5 +87,15 @@ public class NettyConnectionManager implements ConnectionManager {
 
 	NettyBufferPool getBufferPool() {
 		return bufferPool;
+	}
+
+	public <T extends IOReadableWritable> PartitionRequestClient
+	createPartitionRequestClient(ConnectionID connectionId,
+								 T t) throws IOException,
+		     								 InterruptedException {
+		return partitionRequestClientFactory.createPartitionRequestClient(
+			connectionId,
+			t
+		);
 	}
 }

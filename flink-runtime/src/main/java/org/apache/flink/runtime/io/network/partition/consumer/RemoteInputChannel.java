@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
+import org.apache.flink.runtime.io.network.netty.NettyConnectionManager;
 import org.apache.flink.runtime.io.network.netty.PartitionRequestClient;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -287,8 +288,14 @@ public class RemoteInputChannel extends InputChannel {
 	public <T extends IOReadableWritable> void requestSubpartition(int subpartitionIndex, T t) throws IOException, InterruptedException {
 		if (partitionRequestClient == null) {
 			// Create a client and request the partition
-			partitionRequestClient = connectionManager
-				.createPartitionRequestClient(connectionId);
+			if (connectionManager instanceof NettyConnectionManager) {
+
+				partitionRequestClient = ((NettyConnectionManager) connectionManager)
+					.createPartitionRequestClient(connectionId, t);
+			} else {
+				partitionRequestClient = connectionManager
+					.createPartitionRequestClient(connectionId);
+			}
 
 			partitionRequestClient.requestSubpartition(partitionId, subpartitionIndex, this, 0, t);
 		}

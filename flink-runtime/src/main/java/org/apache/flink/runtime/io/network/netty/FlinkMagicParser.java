@@ -5,7 +5,6 @@ import io.netty.buffer.ByteBuf;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.io.IOReadableWritable;
 import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.MagicBuffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
@@ -20,12 +19,12 @@ import java.util.Queue;
 /**
  * Created by winston on 05/04/2016.
  */
-public class MagicParser {
+public class FlinkMagicParser {
 
 	Map<InputChannelID, SpillingBuffer> unfinished = new HashMap<>();
 
 
-	public synchronized Buffer parse(ByteBuf nettyBuffer, int len, IOReadableWritable ioReadableWritable, InputChannelID receiverId) throws IOException {
+	public synchronized MagicBuffer parse(ByteBuf nettyBuffer, int len, IOReadableWritable ioReadableWritable, InputChannelID receiverId) throws IOException {
 		SpillingBuffer buf = unfinished.get(receiverId);
 		if (buf == null) {
 			buf = new SpillingBuffer();
