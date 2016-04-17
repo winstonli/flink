@@ -1,21 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.flink.runtime.io.network.netty;
 
 import io.netty.buffer.ByteBuf;
@@ -24,8 +6,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
-import org.apache.flink.api.java.typeutils.runtime.DataInputViewStream;
-import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -41,14 +21,14 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 
 /**
- * Created by winston on 10/04/2016.
+ * Created by winston on 16/04/2016.
  */
-public class FlinkMagicChannel implements Channel {
+public class KernelMagicChannel implements Channel {
 
 	private final PartitionRequestClientHandler handler;
 	private MagicSocket socket;
 
-	public FlinkMagicChannel(PartitionRequestClientHandler handler) {
+	public KernelMagicChannel(PartitionRequestClientHandler handler) {
 		this.handler = handler;
 	}
 
@@ -307,24 +287,39 @@ public class FlinkMagicChannel implements Channel {
 			public void run() {
 				try {
 					while (true) {
-						FlinkMagicResult res = (FlinkMagicResult) socket.readJ();
-						Object tData = res.getTData();
-						if (tData instanceof FlinkMagicObjectError) {
-							FlinkMagicObjectError error = ((FlinkMagicObjectError) tData);
-							handleError(error);
-						} else if (tData instanceof FlinkMagicBufferHeader) {
-							FlinkMagicBufferHeader header = ((FlinkMagicBufferHeader) tData);
-							handleHeader(header);
-						} else if (tData instanceof FlinkMagicBufferEvent) {
-							FlinkMagicBufferEvent event = ((FlinkMagicBufferEvent) tData);
-							handleEvent(event);
-						} else if (tData instanceof FlinkMagicObject) {
-							FlinkMagicObject tDataObj = ((FlinkMagicObject) tData);
-							handleTData(tDataObj);
-						} else {
-							throw new UnsupportedOperationException();
+						long res = socket.read();
+						DiffingoObj.DiffingoObjType type = DiffingoObj.getType(res);
+						switch (type) {
+						case UNKNOWN:
+							throw new IllegalStateException("empty diffingo obj received");
+						case HEADER:
+							break;
+						case ERROR:
+							long buf = DiffingoObj.getErrorBuf(res);
+							int len = DiffingoObj.getErrorLen(res);
+							handleError(buf, len);
+						case EVENT:
+							long evLower = DiffingoObj.getEventUuidLowerBytes(res);
+							long evUpper = DiffingoObj.getEventUuidUpperBytes(res);
+							InputChannelID evUuid = new InputChannelID(evLower, evUpper);
+							int evSeqNum = DiffingoObj.getEventSeqNum(res);
+							int evSize = DiffingoObj.getEventSize(res);
+							long evBuf = DiffingoObj.getEventBuf(res);
+							int evLen = DiffingoObj.getEventLen(res);
+							handleEvent(evUuid, evSeqNum, evSize, evBuf, evLen);
+							break;
+						case BUFFER:
+							int bufSeqNum = DiffingoObj.getBufferSeqNum(res);
+							long bufLower = DiffingoObj.getBufferUuidLowerBytes(res);
+							long bufUpper = DiffingoObj.getBufferUuidUpperBytes(res);
+							InputChannelID bufUuid = new InputChannelID(bufLower, bufUpper);
+							int bufSize = DiffingoObj.getBufferSize(res);
+							long bufRecords = DiffingoObj.getBufferRecordArr(res);
+							int bufNumRecords = DiffingoObj.getBufferNumRecords(res);
+							handleBuffer(bufUuid, bufSeqNum, bufSize, bufRecords, bufNumRecords);
+							break;
 						}
-                    }
+					}
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -338,10 +333,22 @@ public class FlinkMagicChannel implements Channel {
 		handler.getInputChannelForId(hdr.getReceiverId()).onBuffer(((Buffer) tDataObj.gettData()), hdr.getSequenceNumber());
 	}
 
-	private void handleEvent(FlinkMagicBufferEvent event) {
-		MemorySegment memSeg = MemorySegmentFactory.wrap(event.getCopy());
+	private void handleEvent(InputChannelID evUuid, int seqNum, int size, long buf, int len) {
+		if (size == 0) {
+			handler.getInputChannelForId(evUuid).onEmptyBuffer(seqNum);
+			return;
+		}
+		MemorySegment memSeg = MemorySegmentFactory.wrap(DiffingoObj.copyBytesToArray(buf, len));
 		Buffer buffer = new Buffer(memSeg, FreeingBufferRecycler.INSTANCE, false);
-		handler.getInputChannelForId(event.getReceiverId()).onBuffer(buffer, event.getSequenceNumber());
+		handler.getInputChannelForId(evUuid).onBuffer(buffer, seqNum);
+	}
+
+	private void handleBuffer(InputChannelID uuid, int seqNum, int size, long buf, int len) {
+		if (size == 0) {
+			handler.getInputChannelForId(uuid).onEmptyBuffer(seqNum);
+			return;
+		}
+		handler.getInputChannelForId(uuid).onBuffer(new KernelMagicBuffer(buf, len), seqNum);
 	}
 
 	private void handleHeader(FlinkMagicBufferHeader header) {
@@ -350,11 +357,9 @@ public class FlinkMagicChannel implements Channel {
 		}
 	}
 
-	private void handleError(FlinkMagicObjectError error) {
-		ByteBuf bbuf = Unpooled.wrappedBuffer(error.getErr());
-		DataInputView inputView = new NettyMessage.ByteBufDataInputView(bbuf);
-
-		try (ObjectInputStream ois = new ObjectInputStream(new DataInputViewStream(inputView))) {
+	private void handleError(long buf, int len) {
+		UnsafeInputStream in = new UnsafeInputStream(buf, len);
+		try (ObjectInputStream ois = new ObjectInputStream(in)) {
 			Object obj = ois.readObject();
 
 			if (!(obj instanceof Throwable)) {
@@ -363,8 +368,10 @@ public class FlinkMagicChannel implements Channel {
 			}
 			Throwable cause = (Throwable) obj;
 			InputChannelID receiverId = null;
-			if (bbuf.readBoolean()) {
-				receiverId = InputChannelID.fromByteBuf(bbuf);
+			if (in.read() != 0) {
+				long lower = DiffingoObj.get8NoEndian(in.getCurrentPos());
+				long upper = DiffingoObj.get8NoEndian(in.getOffsetChecked(8));
+				receiverId = new InputChannelID(lower, upper);
 			}
 			if (receiverId == null) { /* Fatal error */
 				handler.notifyAllChannelsOfErrorAndClose(new RemoteTransportException(

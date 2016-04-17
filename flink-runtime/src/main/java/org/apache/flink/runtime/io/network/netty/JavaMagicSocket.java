@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.flink.runtime.io.network.netty;
 
 import com.google.common.base.Preconditions;
@@ -43,6 +61,8 @@ public class JavaMagicSocket implements MagicSocket {
 
 			ByteBuffer header = ByteBuffer.allocate(NettyMessage.HEADER_LENGTH);
 
+//			FileOutputStream fout = new FileOutputStream("/tmp/flink-out.out");
+
 			@Override
 			public void run() {
 				try {
@@ -54,6 +74,8 @@ public class JavaMagicSocket implements MagicSocket {
 
 			private void doRead() throws IOException {
 				while (inputStream.read(header.array(), 0, NettyMessage.HEADER_LENGTH) == NettyMessage.HEADER_LENGTH) {
+//					fout.write(header.array(), 0, NettyMessage.HEADER_LENGTH);
+//					fout.flush();
 					int frameLen = header.getInt(0);
 					int magic = header.getInt(4);
 					Preconditions.checkArgument(magic == NettyMessage.MAGIC_NUMBER);
@@ -74,6 +96,8 @@ public class JavaMagicSocket implements MagicSocket {
 								throw new IllegalStateException("read too much");
 							}
 						}
+//						fout.write(bbuf.array(), bbuf.arrayOffset() + bbuf.readerIndex(), bodyLen);
+//						fout.flush();
 
 						switch (id) {
 						case 0: /* BufferResponse */
@@ -89,6 +113,7 @@ public class JavaMagicSocket implements MagicSocket {
 						bbuf.release();
 					}
 				}
+//				fout.close();
 			}
 
 			private void doReadErrorResponse(ByteBuf bbuf) {
@@ -123,7 +148,7 @@ public class JavaMagicSocket implements MagicSocket {
 	}
 
 	@Override
-	public MagicResult read() throws IOException {
+	public MagicResult readJ() throws IOException {
 		Object res = null;
 		try {
 			res = read.take();
@@ -131,6 +156,11 @@ public class JavaMagicSocket implements MagicSocket {
 			throw new IOException();
 		}
 		return new FlinkMagicResult(res);
+	}
+
+	@Override
+	public long read() throws IOException {
+		throw new UnsupportedOperationException();
 	}
 
 	@Override

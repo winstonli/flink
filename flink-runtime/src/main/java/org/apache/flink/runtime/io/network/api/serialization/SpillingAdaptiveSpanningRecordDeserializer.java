@@ -27,6 +27,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.accumulators.AccumulatorRegistry;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.MagicBuffer;
+import org.apache.flink.runtime.io.network.netty.KernelMagicBuffer;
 import org.apache.flink.runtime.util.DataInputDeserializer;
 import org.apache.flink.util.StringUtils;
 
@@ -113,6 +114,14 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
 			}
 			if (magicBuffer.isSplit()) {
 				return DeserializationResult.PARTIAL_RECORD;
+			}
+			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
+		}
+		if (currentBuffer instanceof KernelMagicBuffer) {
+			KernelMagicBuffer buf = (KernelMagicBuffer) currentBuffer;
+			target.read(buf);
+			if (buf.hasRemaining()) {
+				return DeserializationResult.INTERMEDIATE_RECORD_FROM_BUFFER;
 			}
 			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
 		}

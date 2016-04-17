@@ -1,64 +1,49 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+package org.apache.flink.runtime.io.network.netty;
 
-package org.apache.flink.runtime.io.network.buffer;
-
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MagicInputView;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 
 import java.io.IOException;
-import java.util.Queue;
 
 /**
- * Created by winston on 05/04/2016.
+ * Created by winston on 16/04/2016.
  */
-public class MagicBuffer<T>
-	extends Buffer
-    implements MagicInputView<T> {
+public class KernelMagicBuffer extends Buffer implements MagicInputView {
 
-	private Queue<T> magics;
-	private boolean split;
+	private final long buf;
+	private long current;
+	private final long last;
+	private final int len;
 
-	public MagicBuffer(Queue<T> magics, boolean split) {
-		this.magics = magics;
-		this.split = split;
+	public KernelMagicBuffer(long buf, int len) {
+		this.buf = buf;
+		current = buf;
+		last = buf + len * Tuple2Record.sizeof;
+		this.len = len;
+	}
+
+	public boolean hasRemaining() {
+		return current < last;
+	}
+
+	public long next() {
+		long ret = current;
+		current += Tuple2Record.sizeof;
+		return ret;
+	}
+
+	public long index(int i) {
+		return buf + i * Tuple2Record.sizeof;
+	}
+
+	public int len() {
+		return len;
 	}
 
 	@Override
 	public void recycle() {
-		magics = null;
-	}
 
-	public boolean hasRemaining() {
-		return !magics.isEmpty();
-	}
-
-	public boolean isSplit() {
-		return split;
-	}
-
-	@Override
-	public T read() {
-		return magics.remove();
-	}
-
-	@Override
-	public T read(T target) {
-		throw new UnsupportedOperationException();
 	}
 
 	@Override
@@ -151,4 +136,16 @@ public class MagicBuffer<T>
 		throw new UnsupportedOperationException();
 	}
 
+	@Override
+	public Object read() {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Object read(Object target) {
+		long next = next();
+		((Tuple2) target).f0 = Tuple2Record.key(next);
+		((Tuple2) target).f1 = Tuple2Record.copyOfString(next);
+		return target;
+	}
 }

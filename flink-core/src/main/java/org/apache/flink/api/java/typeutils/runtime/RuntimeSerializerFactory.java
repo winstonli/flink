@@ -123,6 +123,13 @@ public final class RuntimeSerializerFactory<T> implements TypeSerializerFactory<
 	}
 
 	public TypeSerializer<T> getMagicSerializer() {
+//		if (serializer instanceof TupleSerializer) {
+//			TupleSerializer ts = ((TupleSerializer) serializer);
+//			if (ts.fieldSerializers[0] instanceof IntSerializer &&
+//				ts.fieldSerializers[1] instanceof StringSerializer) {
+//				return new MagicTupleSerializer(ts.tupleClass, ts.fieldSerializers);
+//			}
+//		}
 		return getSerializer();
 	}
 
