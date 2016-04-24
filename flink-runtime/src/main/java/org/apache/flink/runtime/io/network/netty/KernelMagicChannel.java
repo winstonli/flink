@@ -288,6 +288,10 @@ public class KernelMagicChannel implements Channel {
 				try {
 					while (true) {
 						long res = socket.read();
+						if (res == 0) {
+							System.out.println("WINSTON-MAGIC socket read was nullptr");
+							break;
+						}
 						DiffingoObj.DiffingoObjType type = DiffingoObj.getType(res);
 						switch (type) {
 						case UNKNOWN:
