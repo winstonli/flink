@@ -285,6 +285,7 @@ public class KernelMagicChannel implements Channel {
 
 			@Override
 			public void run() {
+				long before = System.currentTimeMillis();
 				try {
 					while (true) {
 						long res = socket.read();
@@ -326,6 +327,8 @@ public class KernelMagicChannel implements Channel {
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
+				} finally {
+					System.out.println("Time taken by run: " + (System.currentTimeMillis() - before) + " ms");
 				}
 			}
 
