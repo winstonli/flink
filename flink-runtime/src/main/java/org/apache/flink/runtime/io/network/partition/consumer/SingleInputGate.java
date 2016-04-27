@@ -42,19 +42,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Timer;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.*;
 
 /**
  * An input gate consumes one or more partitions of a single produced intermediate result.
@@ -397,6 +391,8 @@ public class SingleInputGate implements InputGate {
 	// Consume
 	// ------------------------------------------------------------------------
 
+	public static final AtomicLong waitedForInputChannel = new AtomicLong(0L);
+
 	@Override
 	public BufferOrEvent getNextBufferOrEvent() throws IOException, InterruptedException {
 
@@ -411,8 +407,13 @@ public class SingleInputGate implements InputGate {
 		requestPartitions();
 
 		InputChannel currentChannel = null;
+		long before = System.currentTimeMillis();
 		while (currentChannel == null) {
 			currentChannel = inputChannelsWithData.poll(2, TimeUnit.SECONDS);
+		}
+		if (currentChannel instanceof RemoteInputChannel) {
+            long waited = System.currentTimeMillis() - before;
+            waitedForInputChannel.addAndGet(waited);
 		}
 
 		final Buffer buffer = currentChannel.getNextBuffer();
