@@ -83,6 +83,9 @@ abstract class AbstractRecordReader<T extends IOReadableWritable> extends Abstra
 			if (inputGate instanceof SingleInputGate) {
 				bufferOrEvent = ((SingleInputGate) inputGate).getNextBufferOrEvent(target);
 			} else {
+				System.out.println("WRONG INPUT GATE");
+				System.out.println(inputGate.getClass().getSimpleName());
+				System.exit(1);
 				bufferOrEvent = inputGate.getNextBufferOrEvent();
 			}
 
