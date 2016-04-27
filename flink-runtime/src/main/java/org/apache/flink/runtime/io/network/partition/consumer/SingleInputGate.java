@@ -48,6 +48,7 @@ import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.*;
 
@@ -392,6 +393,7 @@ public class SingleInputGate implements InputGate {
 	// Consume
 	// ------------------------------------------------------------------------
 
+	public static AtomicLong waitedForInputChannel = new AtomicLong(0L);
 	@Override
 	public BufferOrEvent getNextBufferOrEvent() throws IOException, InterruptedException {
 
@@ -406,9 +408,13 @@ public class SingleInputGate implements InputGate {
 		requestPartitions();
 
 		InputChannel currentChannel = null;
+		long before = System.currentTimeMillis();
 		while (currentChannel == null) {
 			currentChannel = inputChannelsWithData.poll(2, TimeUnit.SECONDS);
 		}
+		long waited = System.currentTimeMillis() - before;
+		System.out.println("Waited: " + waited + "ms");
+		waitedForInputChannel.addAndGet(waited);
 
 		final Buffer buffer = currentChannel.getNextBuffer();
 
@@ -558,8 +564,13 @@ public class SingleInputGate implements InputGate {
 		requestPartitions(t);
 
 		InputChannel currentChannel = null;
+		long before = System.currentTimeMillis();
 		while (currentChannel == null) {
 			currentChannel = inputChannelsWithData.poll(2, TimeUnit.SECONDS);
+		}
+		if (currentChannel instanceof RemoteInputChannel) {
+            long waited = System.currentTimeMillis() - before;
+            waitedForInputChannel.addAndGet(waited);
 		}
 
 		final Buffer buffer = currentChannel.getNextBuffer();

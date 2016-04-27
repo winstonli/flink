@@ -5,11 +5,15 @@ import org.apache.flink.core.memory.MagicInputView;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by winston on 16/04/2016.
  */
 public class KernelMagicBuffer extends Buffer implements MagicInputView {
+
+	public static final AtomicInteger remainingBufs = new AtomicInteger(0);
+	public static final AtomicInteger totalBufs = new AtomicInteger(0);
 
 	private final long buf;
 	private long current;
@@ -17,6 +21,8 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 	private final int len;
 
 	public KernelMagicBuffer(long buf, int len) {
+		remainingBufs.addAndGet(len);
+		totalBufs.addAndGet(len);
 		this.buf = buf;
 		current = buf;
 		last = buf + len * Tuple2Record.sizeof;
@@ -28,6 +34,7 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 	}
 
 	public long next() {
+		remainingBufs.decrementAndGet();
 		long ret = current;
 		current += Tuple2Record.sizeof;
 		return ret;
