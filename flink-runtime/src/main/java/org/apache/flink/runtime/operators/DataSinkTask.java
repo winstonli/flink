@@ -47,6 +47,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 
 /**
  * DataSinkTask which is executed by a task manager. The task hands the data to an output format.
@@ -182,9 +183,12 @@ public class DataSinkTask<IT> extends AbstractInvokable {
 
 			LOG.debug(getLogString("Starting to produce output"));
 
+			long bef = System.nanoTime();
 			// open
 			format.open(this.getEnvironment().getTaskInfo().getIndexOfThisSubtask(), this.getEnvironment().getTaskInfo().getNumberOfParallelSubtasks());
+			System.out.println("Time taken by data sink open: " + NumberFormat.getNumberInstance().format(System.nanoTime() - bef) + " ns");
 
+			long start = System.nanoTime();
 			if (objectReuseEnabled) {
 				IT record = serializer.createInstance();
 
@@ -200,6 +204,7 @@ public class DataSinkTask<IT> extends AbstractInvokable {
 					format.writeRecord(record);
 				}
 			}
+			System.out.println("Time taken by data sink run: " + NumberFormat.getNumberInstance().format(System.nanoTime() - start) + " ns");
 			
 			// close. We close here such that a regular close throwing an exception marks a task as failed.
 			if (!this.taskCanceled) {

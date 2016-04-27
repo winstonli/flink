@@ -40,6 +40,8 @@ import org.apache.flink.util.MutableObjectIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.NumberFormat;
+
 /**
  * The join driver implements the logic of a join operator at runtime. It instantiates either
  * hash or sort-merge based strategies to find joining pairs of records.
@@ -212,8 +214,10 @@ public class JoinDriver<IT1, IT2, OT> implements Driver<FlatJoinFunction<IT1, IT
 		final FlatJoinFunction<IT1, IT2, OT> joinStub = this.taskContext.getStub();
 		final Collector<OT> collector = this.taskContext.getOutputCollector();
 		final JoinTaskIterator<IT1, IT2, OT> joinIterator = this.joinIterator;
-		
+
+		long before = System.nanoTime();
 		while (this.running && joinIterator.callWithNextKey(joinStub, collector));
+		System.out.println("Time taken by join run: " + NumberFormat.getNumberInstance().format(System.nanoTime() - before) + " ns");
 	}
 
 	@Override
