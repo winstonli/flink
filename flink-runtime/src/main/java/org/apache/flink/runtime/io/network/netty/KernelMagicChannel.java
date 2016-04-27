@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.text.NumberFormat;
 
 /**
  * Created by winston on 16/04/2016.
@@ -287,9 +288,12 @@ public class KernelMagicChannel implements Channel {
 			@Override
 			public void run() {
 				long before = System.currentTimeMillis();
+				long debugDoReadTime = 0;
 				try {
 					while (true) {
+						long b = System.nanoTime();
 						long res = socket.read();
+						debugDoReadTime += (System.nanoTime() - b);
 						if (res == 0) {
 							System.out.println("Remaining bufs: " + KernelMagicBuffer.remainingBufs);
 							System.out.println("Total bufs: " + KernelMagicBuffer.totalBufs);
@@ -333,6 +337,7 @@ public class KernelMagicChannel implements Channel {
 					e.printStackTrace();
 				} finally {
 					System.out.println("Time taken by run: " + (System.currentTimeMillis() - before) + " ms");
+					System.out.println("Time taken by doRead: " + NumberFormat.getNumberInstance().format(debugDoReadTime) + " ns");
 				}
 			}
 
