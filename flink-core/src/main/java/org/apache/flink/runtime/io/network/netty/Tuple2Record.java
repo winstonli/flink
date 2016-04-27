@@ -58,15 +58,16 @@ public class Tuple2Record {
 	}
 
 	public static String copyOfString(long ptr) {
-		String str = new String();
-		try {
-			value.set(str, DiffingoObj.copyCharsToArray(DiffingoObj.unsafe.getAddress(ptr + offsetof_utf16_big_end_chars), utf16_len(ptr)));
-			hash.setInt(str, 0);
-		} catch (IllegalAccessException e) {
-			e.printStackTrace();
-			throw new RuntimeException(e);
-		}
-		return str;
+		return new String(DiffingoObj.copyCharsToArray(DiffingoObj.unsafe.getAddress(ptr + offsetof_utf16_big_end_chars), utf16_len(ptr)));
+//		String str = new String();
+//		try {
+//			value.set(str, DiffingoObj.copyCharsToArray(DiffingoObj.unsafe.getAddress(ptr + offsetof_utf16_big_end_chars), utf16_len(ptr)));
+//			hash.setInt(str, 0);
+//		} catch (IllegalAccessException e) {
+//			e.printStackTrace();
+//			throw new RuntimeException(e);
+//		}
+//		return str;
 	}
 
 }

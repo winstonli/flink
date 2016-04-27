@@ -20,6 +20,7 @@ package org.apache.flink.api.java.typeutils.runtime;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.memory.MagicInputView;
@@ -147,6 +148,9 @@ public class TupleSerializer<T extends Tuple> extends TupleSerializerBase<T> {
 		for (int i = 0; i < arity; i++) {
 			Object field = fieldSerializers[i].deserialize(reuse.getField(i), source);
 			reuse.setField(field, i);
+		}
+		if (reuse instanceof Tuple2) {
+			((Tuple2) reuse).magic = false;
 		}
 		return reuse;
 	}
