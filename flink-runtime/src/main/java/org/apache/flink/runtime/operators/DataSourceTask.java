@@ -41,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -134,6 +135,7 @@ public class DataSourceTask<OT> extends AbstractInvokable {
 			final Iterator<InputSplit> splitIterator = getInputSplits();
 			
 			// for each assigned input split
+			long start = System.nanoTime();
 			while (!this.taskCanceled && splitIterator.hasNext())
 			{
 				// get start and end
@@ -187,6 +189,7 @@ public class DataSourceTask<OT> extends AbstractInvokable {
 					format.close();
 				}
 			} // end for all input splits
+			System.out.println("Time taken for data source task: " + NumberFormat.getNumberInstance().format(System.nanoTime() - start) + " ns");
 
 			// close the collector. if it is a chaining task collector, it will close its chained tasks
 			this.output.close();

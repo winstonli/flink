@@ -67,6 +67,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -446,6 +447,7 @@ public class BatchTask<S extends Function, OT> extends AbstractInvokable impleme
 
 		try {
 			// run the data preparation
+			long start = System.nanoTime();
 			try {
 				this.driver.prepare();
 			}
@@ -454,6 +456,8 @@ public class BatchTask<S extends Function, OT> extends AbstractInvokable impleme
 				// errors during clean-up are swallowed, because we have already a root exception
 				throw new Exception("The data preparation for task '" + this.getEnvironment().getTaskInfo().getTaskName() +
 					"' , caused an error: " + t.getMessage(), t);
+			} finally {
+				System.out.println("Time taken for join preparation: " + NumberFormat.getNumberInstance().format(System.nanoTime() - start) + " ns");
 			}
 
 			// check for canceling
