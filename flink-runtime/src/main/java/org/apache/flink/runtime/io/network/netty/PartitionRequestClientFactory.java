@@ -27,6 +27,8 @@ import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportExcept
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -81,6 +83,37 @@ class PartitionRequestClientFactory {
 					nettyClient.connect(connectionId.getAddress()).addListener(connectingChannel);
 
 					client = connectingChannel.waitForChannel();
+
+					new Thread() {
+
+						@Override
+						public void run() {
+							long before = System.nanoTime();
+							int i;
+							for (i = 0; (System.nanoTime() - before) < 45000000000L; ++i) {
+								try {
+									Thread.sleep(1);
+								} catch (InterruptedException e) {
+									e.printStackTrace();
+								}
+								char[] chs = new char[64000];
+								for (int j = 0; j < 64000; ++j) {
+									chs[j] = ((char) (j - j / 2));
+								}
+                                List<char[]> objs = new ArrayList<>();
+								for (int j = 0; j < 32; ++j) {
+									char[] chs2 = new char[2000];
+									System.arraycopy(chs, j * 2000, chs2, 0, 2000);
+									objs.add(chs2);
+								}
+								while (!objs.isEmpty()) {
+									objs.remove(0);
+								}
+							}
+							System.out.println("Iterations of i: " + i);
+						}
+
+					}.start();
 
 					clients.replace(connectionId, connectingChannel, client);
 				}
