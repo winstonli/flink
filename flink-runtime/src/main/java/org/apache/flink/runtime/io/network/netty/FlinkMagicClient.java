@@ -35,11 +35,11 @@ public class FlinkMagicClient {
 
 	public FlinkMagicClient(PartitionRequestClientHandler handler) {
 		this.handler = handler;
-		magic = new KernelMagicBox();
+		magic = new JavaMagicBox();
 	}
 
 	public ChannelFuture connect(InetSocketAddress serverSocketAddress, MagicTypeDesc type) {
-		KernelMagicChannel channel = new KernelMagicChannel(handler);
+		FlinkMagicChannel channel = new FlinkMagicChannel(handler);
 		try {
 			channel.setSocket(magic.connect(serverSocketAddress, type));
 			DefaultChannelPromise p = new FlinkMagicPromise(channel);

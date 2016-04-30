@@ -143,7 +143,7 @@ public class TupleSerializer<T extends Tuple> extends TupleSerializerBase<T> {
 	@Override
 	public T deserialize(T reuse, DataInputView source) throws IOException {
 		if (source instanceof MagicInputView) {
-			return ((MagicInputView<T>) source).read(reuse);
+			return ((MagicInputView<T>) source).read();
 		}
 		for (int i = 0; i < arity; i++) {
 			Object field = fieldSerializers[i].deserialize(reuse.getField(i), source);
