@@ -30,9 +30,6 @@ public class MagicParser {
 			buf = new SpillingBuffer();
 		}
 		buf.add(new BBuf(nettyBuffer, len));
-		if (buf.bufs.size() > 1) {
-			System.out.println();
-		}
 		Queue<Object> magics = new ArrayDeque<>();
 		while (buf.hasNext()) {
 			try {
@@ -41,9 +38,6 @@ public class MagicParser {
 				t.printStackTrace();
 			}
 			magics.add(((Tuple2) ((DeserializationDelegate<?>) ioReadableWritable).getInstance()).copy());
-		}
-		if (magics.isEmpty()) {
-			System.out.println();
 		}
 		if (buf.isSplit()) {
 			unfinished.put(receiverId, buf);
@@ -99,9 +93,6 @@ public class MagicParser {
 			BBuf head = bufs.peek();
 			if (head.remaining() >= 4) {
 				currentRemaining = head.getBuf().readInt();
-				if (currentRemaining > 2000) {
-					System.out.println();
-				}
 				if (head.remaining() == 0) {
 					bufs.remove().getBuf().release();
 				}
@@ -117,9 +108,6 @@ public class MagicParser {
 				countBuf.put(head.getBuf().readByte());
 			}
 			currentRemaining = countBuf.getInt(0);
-			if (currentRemaining > 2000) {
-				System.out.println();
-			}
 		}
 
 		public synchronized boolean hasNext() {
@@ -203,9 +191,6 @@ public class MagicParser {
 				bufs.remove(head);
 				head.getBuf().release();
 			}
-			if (currentRemaining < 0) {
-				System.out.println();
-			}
 			return b;
 		}
 
@@ -246,9 +231,6 @@ public class MagicParser {
 				buf.put(head.getBuf().readByte());
 			}
 			currentRemaining -= 4;
-			if (currentRemaining < 0) {
-				System.out.println();
-			}
 			return buf.get(0);
 		}
 

@@ -1341,6 +1341,7 @@ object TaskManager {
    */
   def main(args: Array[String]): Unit = {
     // startup checks and logging
+    Class.forName("org.apache.flink.api.java.tuple.Tuple2");
     EnvironmentInformation.logEnvironmentInfo(LOG.logger, "TaskManager", args)
     SignalHandler.register(LOG.logger)
 
