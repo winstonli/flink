@@ -29,4 +29,6 @@ public interface MagicBox {
 	MagicSocket connect(InetSocketAddress address,
 						MagicTypeDesc type) throws IOException;
 
+	MagicSocket connectWithHandler(InetSocketAddress serverSocketAddress, MagicTypeDesc type, MagicHandler magicHandler);
+
 }

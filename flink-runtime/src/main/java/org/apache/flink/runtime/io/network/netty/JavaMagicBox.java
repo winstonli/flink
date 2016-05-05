@@ -31,4 +31,9 @@ public class JavaMagicBox implements MagicBox {
 		return new JavaMagicSocket(address, ((FlinkMagicTypeDesc) type));
 	}
 
+	@Override
+	public MagicSocket connectWithHandler(InetSocketAddress serverSocketAddress, MagicTypeDesc type, MagicHandler magicHandler) {
+		throw new UnsupportedOperationException();
+	}
+
 }

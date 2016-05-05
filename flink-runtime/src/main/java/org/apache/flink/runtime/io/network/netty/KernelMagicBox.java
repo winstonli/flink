@@ -19,4 +19,11 @@ public class KernelMagicBox implements MagicBox {
 		return kernelMagicSocket;
 	}
 
+	@Override
+	public MagicSocket connectWithHandler(InetSocketAddress addr, MagicTypeDesc type, MagicHandler handler) {
+		KernelMagicSocket sock = new KernelMagicSocket(addr, type);
+		sock.connectWithHandler(handler);
+		return sock;
+	}
+
 }

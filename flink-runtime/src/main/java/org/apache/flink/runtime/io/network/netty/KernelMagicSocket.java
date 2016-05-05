@@ -70,10 +70,18 @@ public class KernelMagicSocket implements MagicSocket {
 
 	private static native void doConnect(long kmagic_socket, byte[] address, int port);
 
+	private static native void doConnectWithHandler(long kmagic_socket, byte[] address, int port, MagicHandler handler);
+
 	public void connect() {
 		Preconditions.checkState(!connected);
 		connected = true;
 		doConnect(kmagic_socket, address.getAddress().getAddress(), address.getPort());
+	}
+
+	public void connectWithHandler(MagicHandler handler) {
+		Preconditions.checkState(!connected);
+		connected = true;
+		doConnectWithHandler(kmagic_socket, address.getAddress().getAddress(), address.getPort(), handler);
 	}
 
 }

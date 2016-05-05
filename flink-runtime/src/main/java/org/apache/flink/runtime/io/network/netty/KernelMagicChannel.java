@@ -281,7 +281,7 @@ public class KernelMagicChannel implements Channel {
 		throw new UnsupportedOperationException();
 	}
 
-	public void setSocket(final MagicSocket socket) throws IOException {
+	public void setSocketAndStartThread(final MagicSocket socket) throws IOException {
 		this.socket = socket;
 		new Thread("KMagic Thread") {
 
@@ -404,6 +404,10 @@ public class KernelMagicChannel implements Channel {
 		} catch (ClassNotFoundException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	public void setSocket(MagicSocket socket) {
+		this.socket = socket;
 	}
 
 }

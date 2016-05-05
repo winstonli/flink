@@ -20,9 +20,20 @@ package org.apache.flink.runtime.io.network.netty;
 
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.DefaultChannelPromise;
+import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.core.memory.MemorySegmentFactory;
+import org.apache.flink.runtime.io.network.buffer.ArrayMagicBuffer;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
+import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
+import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
+import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 
 /**
  * Created by winston on 10/04/2016.
@@ -38,16 +49,89 @@ public class FlinkMagicClient {
 		magic = new KernelMagicBox();
 	}
 
-	public ChannelFuture connect(InetSocketAddress serverSocketAddress, MagicTypeDesc type) {
+	public ChannelFuture connect(final InetSocketAddress address, MagicTypeDesc type) {
 		KernelMagicChannel channel = new KernelMagicChannel(handler);
-		try {
-			channel.setSocket(magic.connect(serverSocketAddress, type));
-			DefaultChannelPromise p = new FlinkMagicPromise(channel);
-			return p.setSuccess();
+		channel.setSocket(magic.connectWithHandler(address, type, new MagicHandler() {
+
+			@Override
+			public void handleError(long buf, int len) {
+				System.out.println("handleError(" + buf + ", " + len + ") called");
+				handleErr(address, buf, len);
+			}
+
+			@Override
+			public void handleEvent(InputChannelID uuid, int seqNum, int size, long buf, int len) {
+				System.out.println("handleEvent(" + uuid + ", " + seqNum + ", " + size + ", " + buf + ", " + len + ") called");
+				handleEv(uuid, seqNum, size, buf, len);
+			}
+
+			@Override
+			public void handleBuffer(InputChannelID uuid, int seqNum, int size, Object[] parsed) {
+				if (size == 0) {
+					handler.getInputChannelForId(uuid).onEmptyBuffer(seqNum);
+					return;
+				}
+				handler.getInputChannelForId(uuid).onBuffer(new ArrayMagicBuffer<Object>(parsed), seqNum);
+			}
+
+			@Override
+			public void handleHeader() {
+			}
+
+		}));
+		DefaultChannelPromise p = new FlinkMagicPromise(channel);
+		return p.setSuccess();
+	}
+
+	private void handleErr(SocketAddress addr, long buf, int len) {
+		UnsafeInputStream in = new UnsafeInputStream(buf, len);
+		try (ObjectInputStream ois = new ObjectInputStream(in)) {
+			Object obj = ois.readObject();
+
+			if (!(obj instanceof Throwable)) {
+				throw new ClassCastException("Read object expected to be of type Throwable, " +
+					"actual type is " + obj.getClass() + ".");
+			}
+			Throwable cause = (Throwable) obj;
+			InputChannelID receiverId = null;
+			if (in.read() != 0) {
+				long lower = DiffingoObj.get8NoEndian(in.getCurrentPos());
+				long upper = DiffingoObj.get8NoEndian(in.getOffsetChecked(8));
+				receiverId = new InputChannelID(lower, upper);
+			}
+			if (receiverId == null) { /* Fatal error */
+				handler.notifyAllChannelsOfErrorAndClose(new RemoteTransportException(
+					"Fatal error at remote task manager '" + addr + "'.",
+					addr, cause));
+			} else {
+				RemoteInputChannel inputChannel = handler.getInputChannelForId(receiverId);
+				if (cause.getClass() == PartitionNotFoundException.class) {
+					inputChannel.onFailedPartitionRequest();
+				}
+			}
 		} catch (IOException e) {
-			e.printStackTrace();
-			return new DefaultChannelPromise(channel).setFailure(e);
+			throw new RuntimeException(e);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(e);
 		}
+	}
+
+	private void handleEv(InputChannelID evUuid, int seqNum, int size, long buf, int len) {
+		if (size == 0) {
+			handler.getInputChannelForId(evUuid).onEmptyBuffer(seqNum);
+			return;
+		}
+		MemorySegment memSeg = MemorySegmentFactory.wrap(DiffingoObj.copyBytesToArray(buf, len));
+		Buffer buffer = new Buffer(memSeg, FreeingBufferRecycler.INSTANCE, false);
+		handler.getInputChannelForId(evUuid).onBuffer(buffer, seqNum);
+	}
+
+	private void handleBuf(InputChannelID uuid, int seqNum, int size, long buf, int len) {
+		if (size == 0) {
+			handler.getInputChannelForId(uuid).onEmptyBuffer(seqNum);
+			return;
+		}
+		handler.getInputChannelForId(uuid).onBuffer(new KernelMagicBuffer(buf, len), seqNum);
 	}
 
 }
