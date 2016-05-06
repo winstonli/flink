@@ -18,15 +18,15 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 	private final long buf;
 	private long current;
 	private final long last;
-	private final int len;
+//	private final int len;
 
 	public KernelMagicBuffer(long buf, int len) {
-		remainingBufs.addAndGet(len);
-		totalBufs.addAndGet(len);
+//		remainingBufs.addAndGet(len);
+//		totalBufs.addAndGet(len);
 		this.buf = buf;
 		current = buf;
 		last = buf + len * Tuple2Record.sizeof;
-		this.len = len;
+//		this.len = len;
 	}
 
 	public boolean hasRemaining() {
@@ -34,7 +34,7 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 	}
 
 	public long next() {
-		remainingBufs.decrementAndGet();
+//		remainingBufs.decrementAndGet();
 		long ret = current;
 		current += Tuple2Record.sizeof;
 		return ret;
@@ -44,9 +44,9 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 		return buf + i * Tuple2Record.sizeof;
 	}
 
-	public int len() {
-		return len;
-	}
+//	public int len() {
+//		return len;
+//	}
 
 	@Override
 	public void recycle() {
@@ -156,4 +156,5 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 		((Tuple2) target).magic = true;
 		return target;
 	}
+
 }

@@ -22,7 +22,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.DefaultChannelPromise;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
-import org.apache.flink.runtime.io.network.buffer.ArrayMagicBuffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
@@ -66,12 +65,12 @@ public class FlinkMagicClient {
 			}
 
 			@Override
-			public void handleBuffer(InputChannelID uuid, int seqNum, int size, Object[] parsed) {
+			public void handleBuffer(InputChannelID uuid, int seqNum, int size, long buf, int len) {
 				if (size == 0) {
 					handler.getInputChannelForId(uuid).onEmptyBuffer(seqNum);
 					return;
 				}
-				handler.getInputChannelForId(uuid).onBuffer(new ArrayMagicBuffer<Object>(parsed), seqNum);
+				handler.getInputChannelForId(uuid).onBuffer(new KernelMagicBuffer(buf, len), seqNum);
 			}
 
 			@Override

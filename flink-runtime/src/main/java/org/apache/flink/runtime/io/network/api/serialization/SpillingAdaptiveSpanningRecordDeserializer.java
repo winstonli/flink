@@ -25,9 +25,9 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.accumulators.AccumulatorRegistry;
-import org.apache.flink.runtime.io.network.buffer.ArrayMagicBuffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.MagicBuffer;
+import org.apache.flink.runtime.io.network.netty.KernelMagicBuffer;
 import org.apache.flink.runtime.util.DataInputDeserializer;
 import org.apache.flink.util.StringUtils;
 
@@ -106,14 +106,14 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
 		// always check the non-spanning wrapper first.
 		// this should be the majority of the cases for small records
 		// for large records, this portion of the work is very small in comparison anyways
-		if (currentBuffer instanceof ArrayMagicBuffer) {
-			ArrayMagicBuffer<T> buf = ((ArrayMagicBuffer<T>) currentBuffer);
-			target.read(buf);
-			if (buf.hasRemaining()) {
-				return DeserializationResult.INTERMEDIATE_RECORD_FROM_BUFFER;
-			}
-			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
-		}
+//		if (currentBuffer instanceof ArrayMagicBuffer) {
+//			ArrayMagicBuffer<T> buf = ((ArrayMagicBuffer<T>) currentBuffer);
+//			target.read(buf);
+//			if (buf.hasRemaining()) {
+//				return DeserializationResult.INTERMEDIATE_RECORD_FROM_BUFFER;
+//			}
+//			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
+//		}
 //		if (currentBuffer instanceof MagicBuffer) {
 //			MagicBuffer<T> magicBuffer = (MagicBuffer<T>) currentBuffer;
 //			target.read(magicBuffer);
@@ -125,14 +125,14 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
 //			}
 //			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
 //		}
-//		if (currentBuffer instanceof KernelMagicBuffer) {
-//			KernelMagicBuffer buf = (KernelMagicBuffer) currentBuffer;
-//			target.read(buf);
-//			if (buf.hasRemaining()) {
-//				return DeserializationResult.INTERMEDIATE_RECORD_FROM_BUFFER;
-//			}
-//			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
-//		}
+		if (currentBuffer instanceof KernelMagicBuffer) {
+			KernelMagicBuffer buf = (KernelMagicBuffer) currentBuffer;
+			target.read(buf);
+			if (buf.hasRemaining()) {
+				return DeserializationResult.INTERMEDIATE_RECORD_FROM_BUFFER;
+			}
+			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
+		}
 		int nonSpanningRemaining = this.nonSpanningWrapper.remaining();
 		
 		// check if we can get a full length;

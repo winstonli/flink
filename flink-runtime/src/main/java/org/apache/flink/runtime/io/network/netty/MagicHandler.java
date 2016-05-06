@@ -9,7 +9,7 @@ public interface MagicHandler {
 
 	void handleHeader();
 
-	void handleBuffer(InputChannelID uuid, int seqNum, int size, Object[] parsed);
+	void handleBuffer(InputChannelID uuid, int seqNum, int size, long buf, int len);
 
 	void handleEvent(InputChannelID uuid, int seqNum, int size, long buf, int len);
 
