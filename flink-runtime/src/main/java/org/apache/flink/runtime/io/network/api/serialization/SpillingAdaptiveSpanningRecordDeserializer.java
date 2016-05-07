@@ -131,6 +131,7 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
 			if (buf.hasRemaining()) {
 				return DeserializationResult.INTERMEDIATE_RECORD_FROM_BUFFER;
 			}
+			buf.delete();
 			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
 		}
 		int nonSpanningRemaining = this.nonSpanningWrapper.remaining();

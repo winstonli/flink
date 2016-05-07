@@ -60,6 +60,9 @@ public final class TupleComparator<T extends Tuple> extends TupleComparatorBase<
 		}
 		catch (IndexOutOfBoundsException iobex) {
 			throw new KeyFieldOutOfBoundsException(keyPositions[i]);
+		} catch (ClassCastException e) {
+			e.printStackTrace();
+			throw e;
 		}
 	}
 

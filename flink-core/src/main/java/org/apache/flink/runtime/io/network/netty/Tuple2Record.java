@@ -1,5 +1,7 @@
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
@@ -19,6 +21,7 @@ public class Tuple2Record {
 	private static Field modifiers;
 
 	static {
+		init();
 		sizeof = sizeof();
 		offsetof_key = offsetof_key();
 		offsetof_utf16_len = offsetof_utf16_len();
@@ -48,6 +51,10 @@ public class Tuple2Record {
 	private static native long offsetof_utf16_len();
 
 	private static native long offsetof_utf16_big_end_chars();
+
+	private static native void init();
+
+	public static native void fill(long ptr, Tuple2 j_tuple);
 
 	public static int key(long ptr) {
 		return DiffingoObj.unsafe.getInt(ptr + offsetof_key);

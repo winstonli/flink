@@ -15,12 +15,14 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 	public static final AtomicInteger remainingBufs = new AtomicInteger(0);
 	public static final AtomicInteger totalBufs = new AtomicInteger(0);
 
+	private final long diffObj;
 	private final long buf;
 	private long current;
 	private final long last;
 //	private final int len;
 
-	public KernelMagicBuffer(long buf, int len) {
+	public KernelMagicBuffer(long diffObj, long buf, int len) {
+		this.diffObj = diffObj;
 //		remainingBufs.addAndGet(len);
 //		totalBufs.addAndGet(len);
 		this.buf = buf;
@@ -47,6 +49,10 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 //	public int len() {
 //		return len;
 //	}
+
+	public void delete() {
+		DiffingoObj.delete(diffObj);
+	}
 
 	@Override
 	public void recycle() {
@@ -151,9 +157,10 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 	@Override
 	public Object read(Object target) {
 		long next = next();
-		((Tuple2) target).f0 = Tuple2Record.key(next);
-		((Tuple2) target).f1 = Tuple2Record.copyOfString(next);
-		((Tuple2) target).magic = true;
+//		((Tuple2) target).f0 = Tuple2Record.key(next);
+//		((Tuple2) target).f1 = Tuple2Record.copyOfString(next);
+//		((Tuple2) target).magic = true;
+		Tuple2Record.fill(next, ((Tuple2) target));
 		return target;
 	}
 

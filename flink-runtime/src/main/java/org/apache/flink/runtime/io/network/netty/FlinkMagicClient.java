@@ -65,12 +65,12 @@ public class FlinkMagicClient {
 			}
 
 			@Override
-			public void handleBuffer(InputChannelID uuid, int seqNum, int size, long buf, int len) {
+			public void handleBuffer(InputChannelID uuid, int seqNum, int size, long buf, int len, long diffObj) {
 				if (size == 0) {
 					handler.getInputChannelForId(uuid).onEmptyBuffer(seqNum);
 					return;
 				}
-				handler.getInputChannelForId(uuid).onBuffer(new KernelMagicBuffer(buf, len), seqNum);
+				handler.getInputChannelForId(uuid).onBuffer(new KernelMagicBuffer(diffObj, buf, len), seqNum);
 			}
 
 			@Override
@@ -123,14 +123,6 @@ public class FlinkMagicClient {
 		MemorySegment memSeg = MemorySegmentFactory.wrap(DiffingoObj.copyBytesToArray(buf, len));
 		Buffer buffer = new Buffer(memSeg, FreeingBufferRecycler.INSTANCE, false);
 		handler.getInputChannelForId(evUuid).onBuffer(buffer, seqNum);
-	}
-
-	private void handleBuf(InputChannelID uuid, int seqNum, int size, long buf, int len) {
-		if (size == 0) {
-			handler.getInputChannelForId(uuid).onEmptyBuffer(seqNum);
-			return;
-		}
-		handler.getInputChannelForId(uuid).onBuffer(new KernelMagicBuffer(buf, len), seqNum);
 	}
 
 }

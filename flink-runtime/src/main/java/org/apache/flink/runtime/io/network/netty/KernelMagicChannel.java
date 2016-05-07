@@ -329,7 +329,7 @@ public class KernelMagicChannel implements Channel {
 							int bufSize = DiffingoObj.getBufferSize(res);
 							long bufRecords = DiffingoObj.getBufferRecordArr(res);
 							int bufNumRecords = DiffingoObj.getBufferNumRecords(res);
-							handleBuffer(bufUuid, bufSeqNum, bufSize, bufRecords, bufNumRecords);
+							handleBuffer(res, bufUuid, bufSeqNum, bufSize, bufRecords, bufNumRecords);
 							break;
 						}
 					}
@@ -359,12 +359,12 @@ public class KernelMagicChannel implements Channel {
 		handler.getInputChannelForId(evUuid).onBuffer(buffer, seqNum);
 	}
 
-	private void handleBuffer(InputChannelID uuid, int seqNum, int size, long buf, int len) {
+	private void handleBuffer(long diffObj, InputChannelID uuid, int seqNum, int size, long buf, int len) {
 		if (size == 0) {
 			handler.getInputChannelForId(uuid).onEmptyBuffer(seqNum);
 			return;
 		}
-		handler.getInputChannelForId(uuid).onBuffer(new KernelMagicBuffer(buf, len), seqNum);
+		handler.getInputChannelForId(uuid).onBuffer(new KernelMagicBuffer(diffObj, buf, len), seqNum);
 	}
 
 	private void handleHeader(FlinkMagicBufferHeader header) {

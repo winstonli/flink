@@ -43,6 +43,7 @@ public class DiffingoObj {
 	private static long offsetof_buffer_numrecords;
 
 	static {
+		System.loadLibrary("kmagic_jni");
 		Constructor<Unsafe> unsafeConstructor;
 		try {
 			unsafeConstructor = Unsafe.class.getDeclaredConstructor();
@@ -187,6 +188,8 @@ public class DiffingoObj {
 	public static int getBufferNumRecords(long ptr) {
 		return unsafe.getInt(ptr + offsetof_buffer_numrecords);
 	}
+
+	public static native void delete(long ptr);
 
 	public enum DiffingoObjType {
 		UNKNOWN,
