@@ -21,8 +21,8 @@ package org.apache.flink.runtime.operators;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.distributions.DataDistribution;
-import org.apache.flink.api.common.functions.GroupCombineFunction;
 import org.apache.flink.api.common.functions.Function;
+import org.apache.flink.api.common.functions.GroupCombineFunction;
 import org.apache.flink.api.common.functions.Partitioner;
 import org.apache.flink.api.common.functions.util.FunctionUtils;
 import org.apache.flink.api.common.typeutils.TypeComparator;
@@ -51,23 +51,17 @@ import org.apache.flink.runtime.operators.shipping.OutputEmitter;
 import org.apache.flink.runtime.operators.shipping.ShipStrategyType;
 import org.apache.flink.runtime.operators.sort.CombiningUnilateralSortMerger;
 import org.apache.flink.runtime.operators.sort.UnilateralSortMerger;
-import org.apache.flink.runtime.operators.util.CloseableInputProvider;
-import org.apache.flink.runtime.operators.util.DistributedRuntimeUDFContext;
-import org.apache.flink.runtime.operators.util.LocalStrategy;
-import org.apache.flink.runtime.operators.util.ReaderIterator;
-import org.apache.flink.runtime.operators.util.TaskConfig;
+import org.apache.flink.runtime.operators.util.*;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.MutableObjectIterator;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -447,7 +441,7 @@ public class BatchTask<S extends Function, OT> extends AbstractInvokable impleme
 
 		try {
 			// run the data preparation
-			long start = System.nanoTime();
+//			long start = System.nanoTime();
 			try {
 				this.driver.prepare();
 			}
@@ -456,9 +450,9 @@ public class BatchTask<S extends Function, OT> extends AbstractInvokable impleme
 				// errors during clean-up are swallowed, because we have already a root exception
 				throw new Exception("The data preparation for task '" + this.getEnvironment().getTaskInfo().getTaskName() +
 					"' , caused an error: " + t.getMessage(), t);
-			} finally {
-				System.out.println("Time taken for join preparation: " + NumberFormat.getNumberInstance().format(System.nanoTime() - start) + " ns");
-			}
+			}// finally {
+//				System.out.println("Time taken for join preparation: " + NumberFormat.getNumberInstance().format(System.nanoTime() - start) + " ns");
+//			}
 
 			// check for canceling
 			if (!this.running) {
