@@ -60,7 +60,6 @@ public class FlinkMagicClient {
 
 			@Override
 			public void handleEvent(InputChannelID uuid, int seqNum, int size, long buf, int len) {
-				System.out.println("handleEvent(" + uuid + ", " + seqNum + ", " + size + ", " + buf + ", " + len + ") called");
 				handleEv(uuid, seqNum, size, buf, len);
 			}
 
