@@ -51,8 +51,6 @@ public class Tuple2<T0, T1> extends Tuple {
 	/** Field 1 of the tuple. */
 	public T1 f1;
 
-	public boolean magic = false;
-
 	/**
 	 * Creates a new tuple where all fields are null.
 	 */

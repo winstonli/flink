@@ -26,7 +26,6 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.typeutils.runtime.RuntimeSerializerFactory;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
-import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.operators.hash.NonReusingBuildFirstHashJoinIterator;
 import org.apache.flink.runtime.operators.hash.NonReusingBuildSecondHashJoinIterator;
@@ -38,7 +37,6 @@ import org.apache.flink.runtime.operators.util.JoinTaskIterator;
 import org.apache.flink.runtime.operators.util.TaskConfig;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.MutableObjectIterator;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -220,8 +218,6 @@ public class JoinDriver<IT1, IT2, OT> implements Driver<FlatJoinFunction<IT1, IT
 		long before = System.nanoTime();
 		while (this.running && joinIterator.callWithNextKey(joinStub, collector));
 		System.out.println("Time taken by join run: " + NumberFormat.getNumberInstance().format(System.nanoTime() - before) + " ns");
-		System.out.println("Time taken by hash join next record: " + NumberFormat.getNumberInstance().format(NonReusingBuildFirstHashJoinIterator.nextRecordTime) + " ns");
-		System.out.println("Time taken (inside join run) waiting for queue: " + SingleInputGate.waitedForInputChannel);
 	}
 
 	@Override

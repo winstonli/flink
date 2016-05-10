@@ -159,7 +159,6 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 		long next = next();
 //		((Tuple2) target).f0 = Tuple2Record.key(next);
 //		((Tuple2) target).f1 = Tuple2Record.copyOfString(next);
-//		((Tuple2) target).magic = true;
 		Tuple2Record.fill(next, ((Tuple2) target));
 		return target;
 	}

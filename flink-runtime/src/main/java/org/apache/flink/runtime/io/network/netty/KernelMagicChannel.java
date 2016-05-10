@@ -14,7 +14,6 @@ import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportExcept
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -297,7 +296,6 @@ public class KernelMagicChannel implements Channel {
 						if (res == 0) {
 							System.out.println("Remaining bufs: " + KernelMagicBuffer.remainingBufs);
 							System.out.println("Total bufs: " + KernelMagicBuffer.totalBufs);
-							System.out.println("Time spent waiting for input channel: " + SingleInputGate.waitedForInputChannel.get() + "ms");
 							System.out.println("WINSTON-MAGIC socket read was nullptr");
 							break;
 						}

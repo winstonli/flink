@@ -109,16 +109,11 @@ public class NonReusingBuildFirstHashJoinIterator<V1, V2, O> extends HashJoinIte
 		this.memManager.release(segments);
 	}
 
-	public static long nextRecordTime = 0;
-
 	@Override
 	public final boolean callWithNextKey(FlatJoinFunction<V1, V2, O> matchFunction, Collector<O> collector)
 	throws Exception
 	{
-		long nextRecordBefore = System.nanoTime();
-		boolean nextRecordRet = this.hashJoin.nextRecord();
-		nextRecordTime += (System.nanoTime() - nextRecordBefore);
-		if (nextRecordRet)
+		if (this.hashJoin.nextRecord())
 		{
 			// we have a next record, get the iterators to the probe and build side values
 			final MutableObjectIterator<V1> buildSideIterator = this.hashJoin.getBuildSideIterator();
