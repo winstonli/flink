@@ -7,47 +7,42 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import java.io.IOException;
 
 /**
- * Created by winston on 16/04/2016.
+ * Created by winston on 16/05/2016.
  */
-public class KernelMagicBuffer extends Buffer implements MagicInputView {
+public class DiffingoBuffer extends Buffer implements MagicInputView {
 
-	private final long diffObj;
-	private final long buf;
-	private long current;
-	private final long last;
-//	private final int len;
+	static final long sizeof_ptr = 8;
 
-	public KernelMagicBuffer(long diffObj, long buf, int len) {
-		this.diffObj = diffObj;
-//		remainingBufs.addAndGet(len);
-//		totalBufs.addAndGet(len);
-		this.buf = buf;
-		current = buf;
-		last = buf + len * Tuple2Record.sizeof;
-//		this.len = len;
+	private final long rec_arr;
+	private final long arr_end;
+	private final long kmagic_socket;
+	private final long msg_resource;
+	private long curr;
+
+	public DiffingoBuffer(long rec_arr, int arr_len, long kmagic_socket, long msg_resource) {
+		this.rec_arr = rec_arr;
+		arr_end = rec_arr + sizeof_ptr * arr_len;
+		this.kmagic_socket = kmagic_socket;
+		this.msg_resource = msg_resource;
+		curr = rec_arr;
 	}
 
 	public boolean hasRemaining() {
-		return current < last;
+		return curr < arr_end;
 	}
 
 	public long next() {
-//		remainingBufs.decrementAndGet();
-		long ret = current;
-		current += Tuple2Record.sizeof;
+		long ret = curr;
+		curr += sizeof_ptr;
 		return ret;
 	}
 
 	public long index(int i) {
-		return buf + i * Tuple2Record.sizeof;
+		return rec_arr + i * sizeof_ptr;
 	}
 
-//	public int len() {
-//		return len;
-//	}
-
 	public void delete() {
-		DiffingoObj.delete(diffObj);
+		DiffFlinkRecord.delete(kmagic_socket, msg_resource);
 	}
 
 	@Override
@@ -153,8 +148,8 @@ public class KernelMagicBuffer extends Buffer implements MagicInputView {
 	@Override
 	public Object read(Object target) {
 		long next = next();
-		((Tuple2) target).f0 = Tuple2Record.key(next);
-		((Tuple2) target).f1 = Tuple2Record.copyOfString(next);
+		((Tuple2) target).f0 = DiffFlinkRecord.copyOutOfField0(next);
+		((Tuple2) target).f1 = DiffFlinkRecord.copyOutOfField1(next);
 //		Tuple2Record.fill(next, ((Tuple2) target));
 		return target;
 	}

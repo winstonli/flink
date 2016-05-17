@@ -15,4 +15,10 @@ public interface MagicHandler {
 
 	void handleError(long buf, int len);
 
+	void handleDiffingoBuffer(long kmagic_socket, InputChannelID uuid, int seqNum, int size, long rec_arr, int arr_len, long msg_resource);
+
+	void handleDiffingoEvent(long kmagic_socket, InputChannelID uuid, int seqNum, int size, long buf, int len, long msg_resource);
+
+	void handleDiffingoError(long kmagic_socket, long buf, int len, long msg_resource);
+
 }

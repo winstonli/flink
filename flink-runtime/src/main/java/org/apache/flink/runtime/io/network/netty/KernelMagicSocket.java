@@ -72,10 +72,18 @@ public class KernelMagicSocket implements MagicSocket {
 
 	private static native void doConnectWithHandler(long kmagic_socket, byte[] address, int port, MagicHandler handler);
 
+	private static native void doDiffingoConnect(long magic_socket, byte[] address, int port, MagicHandler handler);
+
 	public void connect() {
 		Preconditions.checkState(!connected);
 		connected = true;
 		doConnect(kmagic_socket, address.getAddress().getAddress(), address.getPort());
+	}
+
+	public void connectDiffingo(MagicHandler handler) {
+		Preconditions.checkState(!connected);
+		connected = true;
+		doDiffingoConnect(kmagic_socket, address.getAddress().getAddress(), address.getPort(), handler);
 	}
 
 	public void connectWithHandler(MagicHandler handler) {

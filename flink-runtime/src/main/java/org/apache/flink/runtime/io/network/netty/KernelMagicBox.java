@@ -22,7 +22,7 @@ public class KernelMagicBox implements MagicBox {
 	@Override
 	public MagicSocket connectWithHandler(InetSocketAddress addr, MagicTypeDesc type, MagicHandler handler) {
 		KernelMagicSocket sock = new KernelMagicSocket(addr, type);
-		sock.connectWithHandler(handler);
+		sock.connectDiffingo(handler);
 		return sock;
 	}
 

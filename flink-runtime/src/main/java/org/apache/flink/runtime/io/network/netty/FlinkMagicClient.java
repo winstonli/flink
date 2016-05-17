@@ -59,6 +59,27 @@ public class FlinkMagicClient {
 			}
 
 			@Override
+			public void handleDiffingoBuffer(long kmagic_socket, InputChannelID uuid, int seqNum, int size, long rec_arr, int arr_len, long msg_resource) {
+				if (size == 0) {
+					handler.getInputChannelForId(uuid).onEmptyBuffer(seqNum);
+					return;
+				}
+				handler.getInputChannelForId(uuid).onBuffer(new DiffingoBuffer(rec_arr, arr_len, kmagic_socket, msg_resource), seqNum);
+			}
+
+			@Override
+			public void handleDiffingoEvent(long kmagic_socket, InputChannelID uuid, int seqNum, int size, long buf, int len, long msg_resource) {
+				handleEv(uuid, seqNum, size, buf, len);
+				DiffFlinkRecord.delete(kmagic_socket, msg_resource);
+			}
+
+			@Override
+			public void handleDiffingoError(long kmagic_socket, long buf, int len, long msg_resource) {
+				handleErr(address, buf, len);
+				DiffFlinkRecord.delete(kmagic_socket, msg_resource);
+			}
+
+			@Override
 			public void handleEvent(InputChannelID uuid, int seqNum, int size, long buf, int len) {
 				handleEv(uuid, seqNum, size, buf, len);
 			}

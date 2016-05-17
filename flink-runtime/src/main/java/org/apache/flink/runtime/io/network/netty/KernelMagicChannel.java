@@ -294,8 +294,6 @@ public class KernelMagicChannel implements Channel {
 						long res = socket.read();
 						debugDoReadTime += (System.nanoTime() - b);
 						if (res == 0) {
-							System.out.println("Remaining bufs: " + KernelMagicBuffer.remainingBufs);
-							System.out.println("Total bufs: " + KernelMagicBuffer.totalBufs);
 							System.out.println("WINSTON-MAGIC socket read was nullptr");
 							break;
 						}
