@@ -8,18 +8,18 @@ import java.net.InetSocketAddress;
 /**
  * Created by winston on 14/04/2016.
  */
-public class KernelMagicSocket implements MagicSocket {
+public class KMagicSocket implements MagicSocket {
 
 	private final InetSocketAddress address;
 	private final MagicTypeDesc type;
 	private boolean connected;
 	private long kmagic_socket;
 
-	public KernelMagicSocket(InetSocketAddress address, MagicTypeDesc type) {
+	public KMagicSocket(InetSocketAddress address, MagicTypeDesc type, int outBufPoolSize, int outBufEmbeddedPoolSize) {
 		this.address = address;
 		this.type = type;
 		connected = false;
-		kmagic_socket = new_kmagic_socket();
+		kmagic_socket = new_kmagic_socket(outBufPoolSize, outBufEmbeddedPoolSize);
 	}
 
 	@Override
@@ -28,7 +28,7 @@ public class KernelMagicSocket implements MagicSocket {
 		super.finalize();
 	}
 
-	private static native long new_kmagic_socket();
+	private static native long new_kmagic_socket(int outBufPoolSize, int outBufEmbeddedPoolSize);
 
 	private static native void delete(long kmagic_socket);
 
@@ -70,7 +70,7 @@ public class KernelMagicSocket implements MagicSocket {
 
 	private static native void doConnect(long kmagic_socket, byte[] address, int port);
 
-	private static native void doConnectWithHandler(long kmagic_socket, byte[] address, int port, MagicHandler handler);
+	private static native void doDiffingoConnect(long magic_socket, byte[] address, int port, MagicHandler handler);
 
 	public void connect() {
 		Preconditions.checkState(!connected);
@@ -78,10 +78,10 @@ public class KernelMagicSocket implements MagicSocket {
 		doConnect(kmagic_socket, address.getAddress().getAddress(), address.getPort());
 	}
 
-	public void connectWithHandler(MagicHandler handler) {
+	public void connectDiffingo(MagicHandler handler) {
 		Preconditions.checkState(!connected);
 		connected = true;
-		doConnectWithHandler(kmagic_socket, address.getAddress().getAddress(), address.getPort(), handler);
+		doDiffingoConnect(kmagic_socket, address.getAddress().getAddress(), address.getPort(), handler);
 	}
 
 }

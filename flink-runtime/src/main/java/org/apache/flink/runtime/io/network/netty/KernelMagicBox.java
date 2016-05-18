@@ -21,8 +21,14 @@ public class KernelMagicBox implements MagicBox {
 
 	@Override
 	public MagicSocket connectWithHandler(InetSocketAddress addr, MagicTypeDesc type, MagicHandler handler) {
+		String magicType = System.getProperty("magic");
+		if (magicType != null && magicType.equals("diffingo")) {
+            KMagicSocket sock = new KMagicSocket(addr, type, 2000, 65534);
+            sock.connectDiffingo(handler);
+            return sock;
+		}
 		KernelMagicSocket sock = new KernelMagicSocket(addr, type);
-		sock.connectDiffingo(handler);
+		sock.connectWithHandler(handler);
 		return sock;
 	}
 
