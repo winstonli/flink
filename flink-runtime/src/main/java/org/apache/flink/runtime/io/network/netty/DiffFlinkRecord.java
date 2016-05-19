@@ -18,6 +18,8 @@ public class DiffFlinkRecord {
 		offsetof_utf16_len = offsetof_data + offsetof_len_();
 	}
 
+	public static native void init();
+
 	public static long offsetof_record_data;
 
 	public static long offsetof_field0;

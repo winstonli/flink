@@ -36,7 +36,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import grizzled.slf4j.Logger
 import org.apache.flink.configuration._
 import org.apache.flink.core.fs.FileSystem
-import org.apache.flink.core.memory.{HybridMemorySegment, HeapMemorySegment, MemorySegmentFactory, MemoryType}
+import org.apache.flink.core.memory.{HeapMemorySegment, HybridMemorySegment, MemorySegmentFactory, MemoryType}
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot
 import org.apache.flink.runtime.akka.AkkaUtils
 import org.apache.flink.runtime.blob.{BlobCache, BlobService}
@@ -50,13 +50,13 @@ import org.apache.flink.runtime.instance.{AkkaActorGateway, HardwareDescription,
 import org.apache.flink.runtime.io.disk.iomanager.IOManager.IOMode
 import org.apache.flink.runtime.io.disk.iomanager.{IOManager, IOManagerAsync}
 import org.apache.flink.runtime.io.network.NetworkEnvironment
-import org.apache.flink.runtime.io.network.netty.NettyConfig
+import org.apache.flink.runtime.io.network.netty.{KernelMagicBox, NettyConfig}
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID
 import org.apache.flink.runtime.leaderretrieval.{LeaderRetrievalListener, LeaderRetrievalService}
 import org.apache.flink.runtime.memory.MemoryManager
 import org.apache.flink.runtime.messages.Messages._
 import org.apache.flink.runtime.messages.RegistrationMessages._
-import org.apache.flink.runtime.messages.StackTraceSampleMessages.{SampleTaskStackTrace, ResponseStackTraceSampleFailure, ResponseStackTraceSampleSuccess, StackTraceSampleMessages, TriggerStackTraceSample}
+import org.apache.flink.runtime.messages.StackTraceSampleMessages.{ResponseStackTraceSampleFailure, ResponseStackTraceSampleSuccess, SampleTaskStackTrace, StackTraceSampleMessages, TriggerStackTraceSample}
 import org.apache.flink.runtime.messages.TaskManagerMessages._
 import org.apache.flink.runtime.messages.TaskMessages._
 import org.apache.flink.runtime.messages.checkpoint.{AbstractCheckpointMessage, NotifyCheckpointComplete, TriggerCheckpoint}
@@ -1343,6 +1343,7 @@ object TaskManager {
     // startup checks and logging
     EnvironmentInformation.logEnvironmentInfo(LOG.logger, "TaskManager", args)
     SignalHandler.register(LOG.logger)
+    Class.forName("org.apache.flink.runtime.io.network.netty.KernelMagicBox");
 
     val maxOpenFileHandles = EnvironmentInformation.getOpenFileHandlesLimit()
     if (maxOpenFileHandles != -1) {
