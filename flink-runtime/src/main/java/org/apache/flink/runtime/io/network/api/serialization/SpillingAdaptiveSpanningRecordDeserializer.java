@@ -28,6 +28,7 @@ import org.apache.flink.runtime.accumulators.AccumulatorRegistry;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.MagicBuffer;
 import org.apache.flink.runtime.io.network.netty.DiffingoBuffer;
+import org.apache.flink.runtime.io.network.netty.KernelMagicBuffer;
 import org.apache.flink.runtime.util.DataInputDeserializer;
 import org.apache.flink.util.StringUtils;
 
@@ -125,15 +126,15 @@ public class SpillingAdaptiveSpanningRecordDeserializer<T extends IOReadableWrit
 //			}
 //			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
 //		}
-//		if (currentBuffer instanceof KernelMagicBuffer) {
-//			KernelMagicBuffer buf = (KernelMagicBuffer) currentBuffer;
-//			target.read(buf);
-//			if (buf.hasRemaining()) {
-//				return DeserializationResult.INTERMEDIATE_RECORD_FROM_BUFFER;
-//			}
-//			buf.delete();
-//			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
-//		}
+		if (currentBuffer instanceof KernelMagicBuffer) {
+			KernelMagicBuffer buf = (KernelMagicBuffer) currentBuffer;
+			target.read(buf);
+			if (buf.hasRemaining()) {
+				return DeserializationResult.INTERMEDIATE_RECORD_FROM_BUFFER;
+			}
+			buf.delete();
+			return DeserializationResult.LAST_RECORD_FROM_BUFFER;
+		}
 		if (currentBuffer instanceof DiffingoBuffer) {
 			DiffingoBuffer buf = (DiffingoBuffer) currentBuffer;
 			target.read(buf);
