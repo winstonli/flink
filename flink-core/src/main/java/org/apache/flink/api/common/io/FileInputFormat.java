@@ -18,32 +18,22 @@
 
 package org.apache.flink.api.common.io;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import com.google.common.base.Preconditions;
 import org.apache.flink.annotation.Public;
 import org.apache.flink.api.common.io.compression.DeflateInflaterInputStreamFactory;
 import org.apache.flink.api.common.io.compression.GzipInflaterInputStreamFactory;
 import org.apache.flink.api.common.io.compression.InflaterInputStreamFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
-import org.apache.flink.core.fs.BlockLocation;
-import org.apache.flink.core.fs.FSDataInputStream;
-import org.apache.flink.core.fs.FileInputSplit;
-import org.apache.flink.core.fs.FileStatus;
-import org.apache.flink.core.fs.FileSystem;
-import org.apache.flink.core.fs.Path;
+import org.apache.flink.core.fs.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.*;
 
 /**
  * The base class for {@link RichInputFormat}s that read from files. For specific input types the
@@ -835,12 +825,136 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
 			this.timeout = timeout;
 		}
 
+		static class RandomAccessFileWrapper extends FSDataInputStream {
+
+			private final RandomAccessFile file;
+
+			public RandomAccessFileWrapper(RandomAccessFile file) {
+				this.file = file;
+			}
+
+			@Override
+			public void seek(long desired) throws IOException {
+				file.seek(desired);
+			}
+
+			@Override
+			public long getPos() throws IOException {
+				return file.getFilePointer();
+			}
+
+			@Override
+			public int read() throws IOException {
+				return file.read();
+			}
+
+			@Override
+			public int read(byte[] b) throws IOException {
+				return file.read(b);
+			}
+
+			@Override
+			public int read(byte[] b, int off, int len) throws IOException {
+				return file.read(b, off, len);
+			}
+
+			@Override
+			public long skip(long n) throws IOException {
+				Preconditions.checkState(n >= 0 && n <= Integer.MAX_VALUE);
+				return file.skipBytes((int) n);
+			}
+
+			@Override
+			public void close() throws IOException {
+				file.close();
+			}
+
+		}
+
+		static class SanityCheckInputStream extends FSDataInputStream {
+
+			private final FSDataInputStream correct;
+			private final FSDataInputStream checking;
+
+			public SanityCheckInputStream(FSDataInputStream correct, FSDataInputStream checking) {
+				this.correct = correct;
+				this.checking = checking;
+			}
+
+			@Override
+			public void seek(long desired) throws IOException {
+				correct.seek(desired);
+				checking.seek(desired);
+			}
+
+			@Override
+			public long getPos() throws IOException {
+				long correctPos = correct.getPos();
+				long checkingPos = checking.getPos();
+				Preconditions.checkState(correctPos == checkingPos);
+				return checkingPos;
+			}
+
+			@Override
+			public int read() throws IOException {
+				int correctRead = correct.read();
+				int checkingRead = checking.read();
+				Preconditions.checkState(correctRead == checkingRead);
+				return checkingRead;
+			}
+
+			@Override
+			public int read(byte[] b) throws IOException {
+				byte[] copy = new byte[b.length];
+				System.arraycopy(b, 0, copy, 0, b.length);
+				int checkingRet = checking.read(b);
+				if (checkingRet == -1) {
+					int correctRet = correct.read(copy);
+					Preconditions.checkArgument(correctRet == checkingRet);
+					return checkingRet;
+				}
+				for (int total = 0; total < checkingRet; ) {
+					int read = correct.read(copy, total, checkingRet - total);
+					total += read;
+				}
+				Preconditions.checkArgument(Arrays.equals(b, copy));
+				return checkingRet;
+			}
+
+			@Override
+			public int read(byte[] b, int off, int len) throws IOException {
+				byte[] copy = new byte[b.length];
+				System.arraycopy(b, 0, copy, 0, b.length);
+				int checkingRet = checking.read(b, off, len);
+				if (checkingRet == -1) {
+					int correctRet = correct.read(copy, off, len);
+					Preconditions.checkArgument(correctRet == checkingRet);
+					return checkingRet;
+				}
+				for (int total = 0; total < checkingRet; ) {
+					int read = correct.read(copy, total + off, checkingRet - total);
+					total += read;
+				}
+				Preconditions.checkArgument(Arrays.equals(b, copy));
+				return checkingRet;
+			}
+
+			@Override
+			public void close() throws IOException {
+				checking.close();
+				correct.close();
+			}
+
+		}
+
 		@Override
 		public void run() {
 			try {
-				final FileSystem fs = FileSystem.get(this.split.getPath().toUri());
-				this.fdis = fs.open(this.split.getPath());
-				
+				RandomAccessFileWrapper r = new RandomAccessFileWrapper(new RandomAccessFile(this.split.getPath().toUri().getPath(), "r"));
+				this.fdis = r;
+//				final FileSystem fs = FileSystem.get(this.split.getPath().toUri());
+//				this.fdis = new SanityCheckInputStream(fs.open(this.split.getPath()), r);
+//				this.fdis = fs.open(this.split.getPath());
 				// check for canceling and close the stream in that case, because no one will obtain it
 				if (this.aborted) {
 					final FSDataInputStream f = this.fdis;
