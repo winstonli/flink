@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.operators;
 
+import com.google.common.base.Preconditions;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.RichInputFormat;
@@ -41,10 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 /**
  * DataSourceTask which is executed by a task manager. The task reads data and uses an 
@@ -123,7 +121,7 @@ public class DataSourceTask<OT> extends AbstractInvokable {
 		boolean objectReuseEnabled = executionConfig.isObjectReuseEnabled();
 
 		LOG.debug("DataSourceTask object reuse: " + (objectReuseEnabled ? "ENABLED" : "DISABLED") + ".");
-		
+
 		final TypeSerializer<OT> serializer = this.serializerFactory.getSerializer();
 		
 		try {
@@ -142,10 +140,14 @@ public class DataSourceTask<OT> extends AbstractInvokable {
 
 				LOG.debug(getLogString("Opening input split " + split.toString()));
 				
-				final InputFormat<OT, InputSplit> format = this.format;
-			
+//				final InputFormat<OT, InputSplit> realFormat = this.format;
+				final InputFormat<OT, InputSplit> format = new MagicInputFormat<OT, InputSplit>(4 * 1024, 32, 4 * 1024);
+//				final InputFormat<OT, InputSplit> format = new FakeInputFormat<OT, InputSplit>();
+
+
 				// open input format
 				format.open(split);
+//				realFormat.open(split);
 	
 				LOG.debug(getLogString("Starting to read input from split " + split.toString()));
 				
@@ -170,14 +172,19 @@ public class DataSourceTask<OT> extends AbstractInvokable {
 							}
 						}
 					} else {
+
+
 						// as long as there is data to read
 						while (!this.taskCanceled && !format.reachedEnd()) {
-
+//							Preconditions.checkState(realFormat.reachedEnd() == format.reachedEnd());
 							OT returned;
 							if ((returned = format.nextRecord(serializer.createInstance())) != null) {
+//								Preconditions.checkState(!realFormat.reachedEnd());
 								output.collect(returned);
 							}
+//							Preconditions.checkState(Objects.equals(realFormat.nextRecord(serializer.createInstance()), returned));
 						}
+//						Preconditions.checkState(realFormat.reachedEnd() == format.reachedEnd());
 					}
 
 					if (LOG.isDebugEnabled() && !this.taskCanceled) {
@@ -186,6 +193,7 @@ public class DataSourceTask<OT> extends AbstractInvokable {
 				} finally {
 					// close. We close here such that a regular close throwing an exception marks a task as failed.
 					format.close();
+//					realFormat.close();
 				}
 			} // end for all input splits
 //			System.out.println("Time taken for data source task: " + NumberFormat.getNumberInstance().format(System.nanoTime() - start) + " ns");
