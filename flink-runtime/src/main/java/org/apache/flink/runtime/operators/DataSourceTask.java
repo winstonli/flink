@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.operators;
 
-import com.google.common.base.Preconditions;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.RichInputFormat;
@@ -42,7 +41,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * DataSourceTask which is executed by a task manager. The task reads data and uses an 
@@ -141,8 +143,9 @@ public class DataSourceTask<OT> extends AbstractInvokable {
 				LOG.debug(getLogString("Opening input split " + split.toString()));
 				
 //				final InputFormat<OT, InputSplit> realFormat = this.format;
-				final InputFormat<OT, InputSplit> format = new MagicInputFormat<OT, InputSplit>(4 * 1024, 32, 4 * 1024);
+//				final InputFormat<OT, InputSplit> format = new MagicInputFormat<OT, InputSplit>(4 * 1024, 32, 4 * 1024);
 //				final InputFormat<OT, InputSplit> format = new FakeInputFormat<OT, InputSplit>();
+				final InputFormat<OT, InputSplit> format = new HandrolledInputFormat<OT, InputSplit>();
 
 
 				// open input format
