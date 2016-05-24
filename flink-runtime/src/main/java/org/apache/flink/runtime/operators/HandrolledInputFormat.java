@@ -67,14 +67,23 @@ public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFor
 		return finished;
 	}
 
+	int[] f0 = new int[1];
+	long[] f1 = new long[1];
+	char[] str = new char[5];
+
 	@Override
 	public OT nextRecord(OT reuse) throws IOException {
 		if (last) {
 			finished = true;
 			return null;
 		}
-		last = DiffingoFile.do_handrolled_read(diffingo_file);
-		DiffingoFile.readInto(diffingo_file, (Tuple3<Integer, Long, String>) reuse);
+//		last = DiffingoFile.do_handrolled_read(diffingo_file);
+		last = DiffingoFile.do_critical_read(diffingo_file, f0, f1, str);
+		Tuple3<Integer, Long, String> tuple = ((Tuple3<Integer, Long, String>) reuse);
+		tuple.f0 = f0[0];
+		tuple.f1 = f1[0];
+		tuple.f2 = new String(str);
+//		DiffingoFile.readInto(diffingo_file, (Tuple3<Integer, Long, String>) reuse);
 		return reuse;
 	}
 

@@ -56,4 +56,6 @@ public class DiffingoFile {
 		);
 	}
 
+	public static native boolean do_critical_read(long diffingo_file, int[] f0, long[] f1, char[] str);
+
 }
