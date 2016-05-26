@@ -2,7 +2,6 @@ package org.apache.flink.runtime.operators;
 
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileInputSplit;
 import org.apache.flink.core.io.InputSplit;
@@ -69,7 +68,8 @@ public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFor
 
 	int[] f0 = new int[1];
 	long[] f1 = new long[1];
-	char[] str = new char[5];
+	char[] str = new char[4096];
+	int[] len = new int[1];
 
 	@Override
 	public OT nextRecord(OT reuse) throws IOException {
@@ -78,13 +78,15 @@ public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFor
 			return null;
 		}
 //		last = DiffingoFile.do_handrolled_read(diffingo_file);
-		last = DiffingoFile.do_critical_read(diffingo_file, f0, f1, str);
-		Tuple3<Integer, Long, String> tuple = ((Tuple3<Integer, Long, String>) reuse);
-		tuple.f0 = f0[0];
-		tuple.f1 = f1[0];
-		tuple.f2 = new String(str);
+//		last = DiffingoFile.do_critical_read(diffingo_file, f0, f1, str);
+		last = DiffingoFile.do_critical_read_line(diffingo_file, str, len);
+//		Tuple3<Integer, Long, String> tuple = ((Tuple3<Integer, Long, String>) reuse);
+//		tuple.f0 = f0[0];
+//		tuple.f1 = f1[0];
+//		tuple.f2 = new String(str);
+		return (OT) new String(str, 0, len[0]);
 //		DiffingoFile.readInto(diffingo_file, (Tuple3<Integer, Long, String>) reuse);
-		return reuse;
+//		return reuse;
 	}
 
 	@Override
