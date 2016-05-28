@@ -66,10 +66,10 @@ public class SeekableFileChannelInputViewTest {
 			
 			// read first, complete
 			for (int i = 0; i < NUM_RECORDS; i += 4) {
-				assertEquals(i, in.readInt());
+				assertEquals(i, in.readIntNative());
 			}
 			try {
-				in.readInt();
+				in.readIntNative();
 				fail("should throw EOF exception");
 			} catch (EOFException ignored) {}
 			
@@ -77,10 +77,10 @@ public class SeekableFileChannelInputViewTest {
 			int i = 2 * PAGE_SIZE + PAGE_SIZE / 4;
 			in.seek(i);
 			for (; i < NUM_RECORDS; i += 4) {
-				assertEquals(i, in.readInt());
+				assertEquals(i, in.readIntNative());
 			}
 			try {
-				in.readInt();
+				in.readIntNative();
 				fail("should throw EOF exception");
 			} catch (EOFException ignored) {}
 			
@@ -88,10 +88,10 @@ public class SeekableFileChannelInputViewTest {
 			i = 120000 - 4;
 			in.seek(i);
 			for (; i < NUM_RECORDS; i += 4) {
-				assertEquals(i, in.readInt());
+				assertEquals(i, in.readIntNative());
 			}
 			try {
-				in.readInt();
+				in.readIntNative();
 				fail("should throw EOF exception");
 			} catch (EOFException ignored) {}
 			
@@ -99,10 +99,10 @@ public class SeekableFileChannelInputViewTest {
 			i = 0;
 			in.seek(i);
 			for (; i < NUM_RECORDS; i += 4) {
-				assertEquals(i, in.readInt());
+				assertEquals(i, in.readIntNative());
 			}
 			try {
-				in.readInt();
+				in.readIntNative();
 				fail("should throw EOF exception");
 			} catch (EOFException ignored) {}
 			
@@ -110,10 +110,10 @@ public class SeekableFileChannelInputViewTest {
 			i = PAGE_SIZE;
 			in.seek(i);
 			for (; i < NUM_RECORDS; i += 4) {
-				assertEquals(i, in.readInt());
+				assertEquals(i, in.readIntNative());
 			}
 			try {
-				in.readInt();
+				in.readIntNative();
 				fail("should throw EOF exception");
 			} catch (EOFException ignored) {}
 			
@@ -121,10 +121,10 @@ public class SeekableFileChannelInputViewTest {
 			i = 3 * PAGE_SIZE;
 			in.seek(i);
 			for (; i < NUM_RECORDS; i += 4) {
-				assertEquals(i, in.readInt());
+				assertEquals(i, in.readIntNative());
 			}
 			try {
-				in.readInt();
+				in.readIntNative();
 				fail("should throw EOF exception");
 			} catch (EOFException ignored) {}
 			
@@ -132,7 +132,7 @@ public class SeekableFileChannelInputViewTest {
 			i = NUM_RECORDS;
 			in.seek(i);
 			try {
-				in.readInt();
+				in.readIntNative();
 				fail("should throw EOF exception");
 			} catch (EOFException ignored) {}
 			

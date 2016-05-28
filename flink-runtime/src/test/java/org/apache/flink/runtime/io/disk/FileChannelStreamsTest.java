@@ -95,7 +95,7 @@ public class FileChannelStreamsTest {
 			FileChannelInputView in = new FileChannelInputView(reader, memMan, memory, 9);
 			
 			// read just something
-			in.readInt();
+			in.readIntNative();
 			
 			// close for the first time, make sure all memory returns
 			in.close();

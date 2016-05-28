@@ -18,12 +18,13 @@
 
 package org.apache.flink.api.common.typeutils.base;
 
-import java.io.IOException;
-
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.types.StringValue;
+import uk.ac.ic.wl3912.magic.NativeStringView;
+
+import java.io.IOException;
 
 @Internal
 public final class StringSerializer extends TypeSerializerSingleton<String> {
@@ -66,6 +67,9 @@ public final class StringSerializer extends TypeSerializerSingleton<String> {
 
 	@Override
 	public String deserialize(DataInputView source) throws IOException {
+		if (source instanceof NativeStringView) {
+			return ((NativeStringView) source).readStringNative();
+		}
 		return StringValue.readString(source);
 	}
 	

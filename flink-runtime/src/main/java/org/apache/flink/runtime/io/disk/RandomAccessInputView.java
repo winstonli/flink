@@ -18,13 +18,13 @@
 
 package org.apache.flink.runtime.io.disk;
 
-import java.io.EOFException;
-import java.util.ArrayList;
-
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.SeekableDataInputView;
 import org.apache.flink.runtime.memory.AbstractPagedInputView;
 import org.apache.flink.runtime.util.MathUtils;
+
+import java.io.EOFException;
+import java.util.ArrayList;
 
 
 public class RandomAccessInputView extends AbstractPagedInputView implements SeekableDataInputView {
@@ -81,4 +81,5 @@ public class RandomAccessInputView extends AbstractPagedInputView implements See
 	protected int getLimitForSegment(MemorySegment segment) {
 		return this.currentSegmentIndex == this.segments.size() - 1 ? this.limitInLastSegment : this.segmentSize;
 	}
+
 }

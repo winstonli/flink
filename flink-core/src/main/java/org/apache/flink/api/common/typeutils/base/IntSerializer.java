@@ -18,11 +18,12 @@
 
 package org.apache.flink.api.common.typeutils.base;
 
-import java.io.IOException;
-
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
+import uk.ac.ic.wl3912.magic.NativeIntView;
+
+import java.io.IOException;
 
 @Internal
 public final class IntSerializer extends TypeSerializerSingleton<Integer> {
@@ -66,6 +67,9 @@ public final class IntSerializer extends TypeSerializerSingleton<Integer> {
 
 	@Override
 	public Integer deserialize(DataInputView source) throws IOException {
+		if (source instanceof NativeIntView) {
+			return ((NativeIntView) source).readIntNative();
+		}
 		return Integer.valueOf(source.readInt());
 	}
 	

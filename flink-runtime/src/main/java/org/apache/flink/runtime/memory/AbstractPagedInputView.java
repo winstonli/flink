@@ -19,12 +19,17 @@
 
 package org.apache.flink.runtime.memory;
 
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.HeapMemorySegment;
+import org.apache.flink.core.memory.MemorySegment;
+import uk.ac.ic.wl3912.magic.NativeIntSerializer;
+import uk.ac.ic.wl3912.magic.NativeIntView;
+import uk.ac.ic.wl3912.magic.NativeStringSerializer;
+import uk.ac.ic.wl3912.magic.NativeStringView;
+
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.UTFDataFormatException;
-
-import org.apache.flink.core.memory.DataInputView;
-import org.apache.flink.core.memory.MemorySegment;
 
 
 /**
@@ -32,7 +37,7 @@ import org.apache.flink.core.memory.MemorySegment;
  * decoding methods to read data from a page and detect page boundary crossing. The concrete sub classes must
  * implement the methods to provide the next memory page once the boundary is crossed.
  */
-public abstract class AbstractPagedInputView implements DataInputView {
+public abstract class AbstractPagedInputView implements DataInputView, NativeIntView, NativeStringView {
 	
 	private MemorySegment currentSegment;
 	
@@ -327,7 +332,6 @@ public abstract class AbstractPagedInputView implements DataInputView {
 		}
 	}
 
-	@Override
 	public int readInt() throws IOException {
 		if (this.positionInSegment < this.limitInSegment - 3) {
 			final int v = this.currentSegment.getIntBigEndian(this.positionInSegment);
@@ -565,4 +569,38 @@ public abstract class AbstractPagedInputView implements DataInputView {
 			}
 		}
 	}
+
+	@Override
+	public int readIntNative() throws IOException {
+		if (this.positionInSegment >= this.limitInSegment - 3) {
+			return readInt();
+		}
+		long[] numRead = new long[1];
+		int des = NativeIntSerializer.deserialize(
+                ((HeapMemorySegment) currentSegment).getArray(),
+                positionInSegment,
+                limitInSegment,
+                numRead
+		);
+		skipBytesToRead((int) numRead[0]);
+		return des;
+	}
+
+	@Override
+	public String readStringNative() throws IOException {
+		long[] numRead = new long[1];
+		while (true) {
+			String des = NativeStringSerializer.deserialize(
+                    ((HeapMemorySegment) currentSegment).getArray(),
+                    positionInSegment,
+                    limitInSegment,
+                    numRead
+			);
+			skipBytesToRead((int) numRead[0]);
+			if (des != null) {
+				return des;
+			}
+		}
+	}
+
 }
