@@ -570,6 +570,15 @@ public abstract class AbstractPagedInputView implements DataInputView, NativeInt
 		}
 	}
 
+	long string_serializer = NativeStringSerializer.create();
+
+	@Override
+	protected void finalize() throws Throwable {
+		NativeStringSerializer.delete(string_serializer);
+		string_serializer = 0L;
+		super.finalize();
+	}
+
 	@Override
 	public int readIntNative() throws IOException {
 		if (this.positionInSegment >= this.limitInSegment - 3) {
@@ -588,15 +597,21 @@ public abstract class AbstractPagedInputView implements DataInputView, NativeInt
 
 	@Override
 	public String readStringNative() throws IOException {
-		long[] numRead = new long[1];
+		long[] numReadPtr = new long[1];
 		while (true) {
 			String des = NativeStringSerializer.deserialize(
+					string_serializer,
                     ((HeapMemorySegment) currentSegment).getArray(),
                     positionInSegment,
                     limitInSegment,
-                    numRead
+                    numReadPtr
 			);
-			skipBytesToRead((int) numRead[0]);
+			int numRead = (int) numReadPtr[0];
+			if (numRead == 0) {
+				advance();
+			} else {
+				skipBytesToRead(numRead);
+			}
 			if (des != null) {
 				return des;
 			}
