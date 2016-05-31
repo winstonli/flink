@@ -579,32 +579,37 @@ public abstract class AbstractPagedInputView implements DataInputView, NativeInt
 		super.finalize();
 	}
 
+	long[] numReadPtr = new long[1];
 	@Override
 	public int readIntNative() throws IOException {
 		if (this.positionInSegment >= this.limitInSegment - 3) {
 			return readInt();
 		}
-		long[] numRead = new long[1];
 		int des = NativeIntSerializer.deserialize(
                 ((HeapMemorySegment) currentSegment).getArray(),
                 positionInSegment,
                 limitInSegment,
-                numRead
+			numReadPtr
 		);
-		skipBytesToRead((int) numRead[0]);
+		skipBytesToRead((int) numReadPtr[0]);
 		return des;
 	}
 
+	char[] buf = new char[1024];
+	long[] len_ptr = new long[] { 0 };
+
 	@Override
 	public String readStringNative() throws IOException {
-		long[] numReadPtr = new long[1];
+		len_ptr[0] = 0;
 		while (true) {
-			String des = NativeStringSerializer.deserialize(
-					string_serializer,
-                    ((HeapMemorySegment) currentSegment).getArray(),
-                    positionInSegment,
-                    limitInSegment,
-                    numReadPtr
+			boolean ret = NativeStringSerializer.deserializeChars(
+				string_serializer,
+				((HeapMemorySegment) currentSegment).getArray(),
+				positionInSegment,
+				limitInSegment,
+				buf,
+				len_ptr,
+				numReadPtr
 			);
 			int numRead = (int) numReadPtr[0];
 			if (numRead == 0) {
@@ -612,10 +617,28 @@ public abstract class AbstractPagedInputView implements DataInputView, NativeInt
 			} else {
 				skipBytesToRead(numRead);
 			}
-			if (des != null) {
-				return des;
+			if (ret) {
+				return new String(buf, 0, (int) len_ptr[0]);
 			}
 		}
+//		while (true) {
+//			String des = NativeStringSerializer.deserialize(
+//					string_serializer,
+//                    ((HeapMemorySegment) currentSegment).getArray(),
+//                    positionInSegment,
+//                    limitInSegment,
+//                    numReadPtr
+//			);
+//			int numRead = (int) numReadPtr[0];
+//			if (numRead == 0) {
+//				advance();
+//			} else {
+//				skipBytesToRead(numRead);
+//			}
+//			if (des != null) {
+//				return des;
+//			}
+//		}
 	}
 
 }

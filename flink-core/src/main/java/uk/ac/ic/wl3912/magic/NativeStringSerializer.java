@@ -11,6 +11,21 @@ public class NativeStringSerializer {
 
 	public static native long create();
 	public static native void delete(long pThis);
-	public static native String deserialize(long pThis, byte[] source, long offset, long end, long[] numReadPtr);
+	public static native String deserialize(
+            long pThis,
+            byte[] source,
+            long offset,
+            long end,
+            long[] numReadPtr
+	);
+	public static native boolean deserializeChars(
+            long pThis,
+            byte[] source,
+            long offset,
+            long end,
+            char[] target,
+            long[] lenPtr,
+            long[] numReadPtr
+	);
 
 }
