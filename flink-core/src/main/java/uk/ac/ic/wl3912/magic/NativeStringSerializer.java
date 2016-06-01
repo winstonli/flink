@@ -19,13 +19,13 @@ public class NativeStringSerializer {
             long[] numReadPtr
 	);
 	public static native boolean deserializeChars(
-            long pThis,
             byte[] source,
             long offset,
             long end,
             char[] target,
             long[] lenPtr,
-            long[] numReadPtr
+            long[] numReadPtr,
+			long[] remainingPtr
 	);
 
 }
