@@ -2,6 +2,7 @@ package uk.ac.ic.wl3912.magic;
 
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileInputSplit;
 import org.apache.flink.core.io.InputSplit;
@@ -14,8 +15,8 @@ import java.io.IOException;
  */
 public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFormat<OT, T> {
 
-	private String currentFilePath;
-	private long diffingo_file;
+	private String currentFilePath = null;
+	private long csv_file_parser_ptr = 0;
 	private boolean last;
 	private boolean finished;
 
@@ -46,30 +47,40 @@ public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFor
 		if (currentFilePath != null && !currentFilePath.equals(path)) {
 			deleteAndReset();
 		}
-		if (diffingo_file == 0) {
-			diffingo_file = DiffingoFile.construct(path, 64, 1, 64);
+		if (csv_file_parser_ptr == 0) {
+			csv_file_parser_ptr = csv_file_parser.create(path);
 			currentFilePath = path;
 		}
-		DiffingoFile.open_split(diffingo_file, fsplit.getStart(), fsplit.getLength());
+		csv_file_parser.open_split(
+                csv_file_parser_ptr,
+                fsplit.getStart(),
+                fsplit.getLength()
+		);
 		last = false;
 		finished = false;
 	}
 
 	private void deleteAndReset() {
-		DiffingoFile.delete(diffingo_file);
+		csv_file_parser.delete(csv_file_parser_ptr);
 		currentFilePath = null;
-		diffingo_file = 0;
+		csv_file_parser_ptr = 0;
 	}
 
 	@Override
 	public boolean reachedEnd() throws IOException {
 		return finished;
 	}
+//
+//	int[] f0 = new int[1];
+//	long[] f1 = new long[1];
+//	char[] str = new char[4096];
+//	int[] len = new int[1];
+//
 
-	int[] f0 = new int[1];
-	long[] f1 = new long[1];
-	char[] str = new char[4096];
-	int[] len = new int[1];
+	char[] url = new char[2048];
+	int[] url_len_ptr = new int[1];
+	char[] link = new char[3072];
+	int[] link_len_ptr = new int[1];
 
 	@Override
 	public OT nextRecord(OT reuse) throws IOException {
@@ -79,21 +90,30 @@ public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFor
 		}
 //		last = DiffingoFile.do_handrolled_read(diffingo_file);
 //		last = DiffingoFile.do_critical_read(diffingo_file, f0, f1, str);
-		last = DiffingoFile.do_critical_read_line(diffingo_file, str, len);
+		last = csv_file_parser.read(
+                csv_file_parser_ptr,
+                url,
+                url_len_ptr,
+                link,
+                link_len_ptr
+		);
 //		Tuple3<Integer, Long, String> tuple = ((Tuple3<Integer, Long, String>) reuse);
 //		tuple.f0 = f0[0];
 //		tuple.f1 = f1[0];
 //		tuple.f2 = new String(str);
-		return (OT) new String(str, 0, len[0]);
+		return (OT)  new Tuple2<>(
+			new String(url, 0, url_len_ptr[0]),
+			new String(link, 0, link_len_ptr[0])
+		);
 //		DiffingoFile.readInto(diffingo_file, (Tuple3<Integer, Long, String>) reuse);
 //		return reuse;
 	}
-
+//
 	@Override
 	public void close() throws IOException {
-		if (diffingo_file != 0) {
-			DiffingoFile.delete(diffingo_file);
-			diffingo_file = 0;
+		if (csv_file_parser_ptr != 0) {
+			csv_file_parser.delete(csv_file_parser_ptr);
+			csv_file_parser_ptr = 0;
 			currentFilePath = null;
 		}
 	}

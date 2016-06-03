@@ -39,6 +39,7 @@ import org.apache.flink.util.Collector;
 import org.apache.flink.util.InstantiationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.ac.ic.wl3912.magic.HandrolledInputFormat;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -142,7 +143,8 @@ public class DataSourceTask<OT> extends AbstractInvokable {
 
 				LOG.debug(getLogString("Opening input split " + split.toString()));
 
-				final InputFormat<OT, InputSplit> format = this.format;
+//				final InputFormat<OT, InputSplit> format = this.format;
+				final InputFormat<OT, InputSplit> format = new HandrolledInputFormat<>();
 
 				// open input format
 				format.open(split);
