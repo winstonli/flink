@@ -3,7 +3,7 @@ package uk.ac.ic.wl3912.magic;
 /**
  * Created by winston on 02/06/2016.
  */
-public class csv_file_parser {
+public abstract class csv_file_parser {
 
 	static {
 		System.loadLibrary("webjob_jni");
@@ -21,6 +21,15 @@ public class csv_file_parser {
 			int[] url_len_ptr,
 			char[] link,
 			int[] link_len_ptr
+	);
+
+	public abstract void open_split(long offset, long len);
+
+	public abstract boolean read(
+		char[] url,
+		int[] url_len_ptr,
+		char[] link,
+		int[] link_len_ptr
 	);
 
 }

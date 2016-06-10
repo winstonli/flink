@@ -9,6 +9,7 @@ import org.apache.flink.core.io.InputSplit;
 import org.apache.flink.core.io.InputSplitAssigner;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  * Created by winston on 24/05/2016.
@@ -17,6 +18,7 @@ public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFor
 
 	private String currentFilePath = null;
 	private long csv_file_parser_ptr = 0;
+	private csv_file_parser p;
 	private boolean last;
 	private boolean finished;
 
@@ -50,6 +52,17 @@ public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFor
 		if (csv_file_parser_ptr == 0) {
 			csv_file_parser_ptr = csv_file_parser.create(path);
 			currentFilePath = path;
+			try {
+				p = Mycsv_file_parser.class.getDeclaredConstructor(long.class).newInstance(csv_file_parser_ptr);
+			} catch (InstantiationException e) {
+				e.printStackTrace();
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (NoSuchMethodException e) {
+				e.printStackTrace();
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+			}
 		}
 		csv_file_parser.open_split(
                 csv_file_parser_ptr,
@@ -90,13 +103,14 @@ public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFor
 		}
 //		last = DiffingoFile.do_handrolled_read(diffingo_file);
 //		last = DiffingoFile.do_critical_read(diffingo_file, f0, f1, str);
-		last = csv_file_parser.read(
-                csv_file_parser_ptr,
-                url,
-                url_len_ptr,
-                link,
-                link_len_ptr
-		);
+		last = p.read(url, url_len_ptr, link, link_len_ptr);
+//		last = csv_file_parser.read(
+//                csv_file_parser_ptr,
+//                url,
+//                url_len_ptr,
+//                link,
+//                link_len_ptr
+//		);
 //		Tuple3<Integer, Long, String> tuple = ((Tuple3<Integer, Long, String>) reuse);
 //		tuple.f0 = f0[0];
 //		tuple.f1 = f1[0];
@@ -118,4 +132,22 @@ public class HandrolledInputFormat<OT, T extends InputSplit> implements InputFor
 		}
 	}
 
+	private static class Mycsv_file_parser extends csv_file_parser {
+
+		private final long ptr;
+
+		public Mycsv_file_parser(long ptr) {
+			this.ptr = ptr;
+		}
+
+		@Override
+        public void open_split(long offset, long len) {
+            csv_file_parser.open_split(ptr, offset, len);
+        }
+
+		@Override
+        public boolean read(char[] url, int[] url_len_ptr, char[] link, int[] link_len_ptr) {
+            return csv_file_parser.read(ptr, url, url_len_ptr, link, link_len_ptr);
+        }
+	}
 }
